@@ -36,10 +36,12 @@ async fn gather_items_json(search_query: &str) -> Result<Value> {
     let contexts: Value = items
         .iter()
         .map(|it| {
+            let magnet = it.magnet_link();
             context! {
                 already_added => known_torrents.iter().any(|t| t.contains(&it.title)),
                 title => it.title,
                 guid => it.guid,
+                magnet => magnet,
                 seeders => it.seeders,
                 peers => it.peers,
                 pub_date => utils::format_date_unix(&it.pub_date),
@@ -87,7 +89,11 @@ async fn request_rqbit_known_torrents() -> Vec<String> {
         .unwrap_or_default();
     items
         .into_iter()
-        .filter_map(|item| item.get("name").and_then(|name| name.as_str()).map(str::to_string))
+        .filter_map(|item| {
+            item.get("name")
+                .and_then(|name| name.as_str())
+                .map(str::to_string)
+        })
         .collect()
 }
 
@@ -109,7 +115,7 @@ async fn query_jackett(search_query: &str) -> Result<String> {
 }
 
 /// serde-xml-rs rejects repeated `<torznab:attr .../>` as duplicate field `attr`.
-/// Lift seeders/peers into real elements and drop the rest before parsing.
+/// Lift seeders/peers/magneturl into real elements and drop the rest before parsing.
 fn normalize_torznab_xml(xml: &str) -> String {
     let mut out = String::with_capacity(xml.len());
     let mut rest = xml;
@@ -125,7 +131,7 @@ fn normalize_torznab_xml(xml: &str) -> String {
         };
         let tag = &after[..end];
         if let (Some(name), Some(value)) = (xml_attr(tag, "name"), xml_attr(tag, "value")) {
-            if name == "seeders" || name == "peers" {
+            if name == "seeders" || name == "peers" || name == "magneturl" {
                 out.push('<');
                 out.push_str(name);
                 out.push('>');
