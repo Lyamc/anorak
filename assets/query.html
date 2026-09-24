@@ -28,7 +28,7 @@
                 {% if item.already_added %}
                 <span class="fa-solid fa-check"></span>
                 {% else %}
-                <form hx-post="/send-to-transmission/" hx-swap="outerHTML">
+                <form hx-post="/send-to-rqbit/" hx-swap="outerHTML">
                     <input type="hidden" name="magnet" value="{{ item.guid }}">
                     <button type="submit"><span class="fa-solid fa-magnet"></span></button>
                 </form>

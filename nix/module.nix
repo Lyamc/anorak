@@ -31,10 +31,11 @@ in
       description = "API key sent to the Torznab server. Lodestarr accepts any value.";
     };
 
-    transmissionUrl = lib.mkOption {
+    rqbitUrl = lib.mkOption {
       type = lib.types.str;
-      example = "http://127.0.0.1:9091/transmission/rpc";
-      description = "Transmission RPC URL. Anorak does not send a username or password.";
+      default = "http://127.0.0.1:9030";
+      example = "http://127.0.0.1:9030";
+      description = "rqbit HTTP API. Grabs are posted to /torrents on this URL.";
     };
 
     openFirewall = lib.mkOption {
@@ -72,7 +73,7 @@ in
       environment = {
         JACKETT_URL = cfg.jackettUrl;
         JACKETT_APIKEY = cfg.jackettApiKey;
-        TRANSMISSION_URL = cfg.transmissionUrl;
+        RQBIT_URL = cfg.rqbitUrl;
         ANORAK_PORT = toString cfg.port;
         RUST_LOG = "info";
       };

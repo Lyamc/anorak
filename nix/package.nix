@@ -24,7 +24,7 @@ rustPlatform.buildRustPackage {
   '';
 
   meta = {
-    description = "Search a Torznab indexer and send results to Transmission";
+    description = "Search a Torznab indexer and send results to rqbit";
     mainProgram = "anorak";
     license = lib.licenses.gpl3Plus;
   };

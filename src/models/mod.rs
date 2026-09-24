@@ -7,13 +7,8 @@ pub struct Rss {
 
 #[derive(Debug, Deserialize)]
 pub struct Channel {
+    #[serde(default)]
     pub item: Vec<Item>,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Attr {
-    pub name: String,
-    pub value: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -32,8 +27,12 @@ pub struct Item {
     pub description: String,
     #[serde(default)]
     pub category: Vec<String>,
-    #[serde(rename = "attr", default)]
-    pub attrs: Vec<Attr>,
+    /// Injected from torznab:attr before XML deserialize.
+    #[serde(default)]
+    pub seeders: u32,
+    /// Injected from torznab:attr before XML deserialize.
+    #[serde(default)]
+    pub peers: u32,
 }
 
 #[derive(Deserialize)]

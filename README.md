@@ -1,6 +1,6 @@
 # Anorak
 
-Anorak is a self-hosted app for searching a Torznab indexer and sending the result to Transmission.
+Anorak is a self-hosted app for searching a Torznab indexer and sending the result to rqbit.
 It is a general-purpose torrent grabber, rather than a show or movie manager.
 
 It is written with Rust, Axum, MiniJinja, and HTMX.
@@ -16,13 +16,13 @@ services.anorak = {
   enable = true;
   jackettUrl = "http://127.0.0.1:3420/api/v2.0/indexers/all/results/torznab";
   jackettApiKey = "lodestarr";
-  transmissionUrl = "http://127.0.0.1:9091/transmission/rpc";
+  rqbitUrl = "http://127.0.0.1:9030";
 };
 ```
 
-`jackettUrl` is the Torznab results URL. Lodestarr and Jackett both provide that API.
+`jackettUrl` is the Torznab results URL. Point it at Lodestarr.
 `jackettApiKey` is sent with each search. Lodestarr accepts any value.
-`transmissionUrl` is the Transmission RPC endpoint. Anorak does not send a username or password.
+`rqbitUrl` is rqbit's HTTP API. A grab is posted to `{rqbitUrl}/torrents`.
 
 The service listens on port 9341. Set `openFirewall = true` only when it should be reachable on the host's own network.
 
@@ -45,7 +45,7 @@ services.anorak = {
   namespaceService = "nordvpn-netns.service";
   jackettUrl = "http://127.0.0.1:3420/api/v2.0/indexers/all/results/torznab";
   jackettApiKey = "lodestarr";
-  transmissionUrl = "http://127.0.0.1:9091/transmission/rpc";
+  rqbitUrl = "http://127.0.0.1:9030";
 };
 ```
 
@@ -56,7 +56,7 @@ services.anorak = {
 ```bash
 export JACKETT_URL=http://127.0.0.1:3420/api/v2.0/indexers/all/results/torznab
 export JACKETT_APIKEY=lodestarr
-export TRANSMISSION_URL=http://127.0.0.1:9091/transmission/rpc
+export RQBIT_URL=http://127.0.0.1:9030
 cargo run
 ```
 
