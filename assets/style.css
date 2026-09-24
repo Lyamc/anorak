@@ -70,8 +70,22 @@ body {
     border-radius: 4px;
 }
 
+#mainContent th.sorted.asc::after {
+    content: " ▲";
+    font-size: 0.75em;
+}
+
+#mainContent th.sorted.desc::after {
+    content: " ▼";
+    font-size: 0.75em;
+}
+
 .center {
     text-align: center;
+}
+
+.muted {
+    color: #888;
 }
 
 /* Column sizing */
@@ -108,6 +122,109 @@ body {
 #mainContent td.date {
     width: 160px;
     white-space: nowrap;
+}
+
+#mainContent th.select,
+#mainContent td.select {
+    width: 36px;
+    text-align: center;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.results-toolbar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 8px 0 12px;
+    padding: 10px 12px;
+    background: #CAD4DF;
+    border-radius: 4px;
+    color: #3B373B;
+}
+
+.toolbar-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: end;
+}
+
+.toolbar-row.actions {
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.toolbar-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.toolbar-field.grow {
+    flex: 1 1 180px;
+    min-width: 160px;
+}
+
+.toolbar-field input,
+.toolbar-field select {
+    font-family: Arial, Helvetica, sans-serif;
+    font-weight: normal;
+    height: 32px;
+    border: 2px solid #B8C2CD;
+    border-radius: 4px;
+    padding: 0 8px;
+    color: #3B373B;
+    background: #fff;
+    box-sizing: border-box;
+    min-width: 110px;
+}
+
+.toolbar-field.grow input {
+    width: 100%;
+}
+
+.toolbar-btn {
+    font-family: Arial, Helvetica, sans-serif;
+    height: 32px;
+    border: 2px solid #656E77;
+    border-radius: 4px;
+    background: #fff;
+    color: #3B373B;
+    padding: 0 12px;
+    cursor: pointer;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+    background: #fcfcfc;
+}
+
+.toolbar-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.toolbar-btn.primary {
+    background: #3B373B;
+    color: #fff;
+    border-color: #3B373B;
+}
+
+.toolbar-btn.primary:hover:not(:disabled) {
+    background: #555;
+}
+
+.toolbar-meta {
+    font-size: 13px;
+    margin-right: auto;
+    margin-left: 0;
+}
+
+.toolbar-row.actions .toolbar-meta + .toolbar-meta {
+    margin-right: 8px;
+    margin-left: 0;
 }
 
 @media (max-width: 720px) {

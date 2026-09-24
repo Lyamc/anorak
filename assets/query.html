@@ -1,7 +1,69 @@
 {% if items is defined and items|length > 0 %}
-<table class="sortable">
+<div class="results-toolbar" id="resultsToolbar">
+    <div class="toolbar-row">
+        <label class="toolbar-field">
+            <span>Sort</span>
+            <select id="sortPrimary">
+                <option value="seeders:desc" selected>Most seeds</option>
+                <option value="seeders:asc">Least seeds</option>
+                <option value="size:desc">Largest</option>
+                <option value="size:asc">Smallest</option>
+                <option value="date:desc">Newest</option>
+                <option value="date:asc">Oldest</option>
+                <option value="name:asc">Title A–Z</option>
+                <option value="name:desc">Title Z–A</option>
+            </select>
+        </label>
+        <label class="toolbar-field">
+            <span>Then</span>
+            <select id="sortSecondary">
+                <option value="" selected>None</option>
+                <option value="seeders:desc">Most seeds</option>
+                <option value="seeders:asc">Least seeds</option>
+                <option value="size:desc">Largest</option>
+                <option value="size:asc">Smallest</option>
+                <option value="date:desc">Newest</option>
+                <option value="date:asc">Oldest</option>
+                <option value="name:asc">Title A–Z</option>
+                <option value="name:desc">Title Z–A</option>
+            </select>
+        </label>
+        <button type="button" id="clearSort" class="toolbar-btn" title="Reset sort to most seeds">Clear sort</button>
+    </div>
+    <div class="toolbar-row">
+        <label class="toolbar-field grow">
+            <span>Name contains</span>
+            <input type="text" id="filterName" placeholder="filter title…" autocomplete="off">
+        </label>
+        <label class="toolbar-field">
+            <span>Min seeds</span>
+            <input type="number" id="filterMinSeeds" min="0" step="1" placeholder="0">
+        </label>
+        <label class="toolbar-field">
+            <span>Min size (MB)</span>
+            <input type="number" id="filterMinSize" min="0" step="1" placeholder="0">
+        </label>
+        <label class="toolbar-field">
+            <span>Max size (MB)</span>
+            <input type="number" id="filterMaxSize" min="0" step="1" placeholder="∞">
+        </label>
+        <button type="button" id="clearFilters" class="toolbar-btn">Clear filters</button>
+    </div>
+    <div class="toolbar-row actions">
+        <span id="visibleCount" class="toolbar-meta"></span>
+        <span id="selectedCount" class="toolbar-meta">0 selected</span>
+        <button type="button" id="grabSelected" class="toolbar-btn primary" disabled>
+            <span class="fa-solid fa-magnet"></span> Grab selected
+        </button>
+    </div>
+</div>
+
+<table class="sortable" id="resultsTable">
     <thead>
         <tr>
+            <th class="select no-sort">
+                <input type="checkbox" id="selectAll" title="Select all visible">
+            </th>
             <th class="name" data-sort-key="name" data-sort-type="string">Name</th>
             <th class="seeders" data-sort-key="seeders" data-sort-type="number">S/P</th>
             <th class="size" data-sort-key="size" data-sort-type="number">Size</th>
@@ -11,7 +73,16 @@
     </thead>
     <tbody>
         {% for item in items %}
-        <tr>
+        <tr data-name="{{ item.title }}"
+            data-seeders="{{ item.seeders }}"
+            data-size="{{ item.size }}"
+            data-date="{{ item.pub_date }}"
+            data-magnet="{{ item.magnet }}">
+            <td class="select">
+                {% if not item.already_added and item.magnet %}
+                <input type="checkbox" class="row-select" aria-label="Select {{ item.title }}">
+                {% endif %}
+            </td>
             <td class="name" title="{{ item.title }}">
                 {{ item.title }}
             </td>
@@ -24,14 +95,16 @@
             <td class="date" data-sort="{{ item.pub_date }}">
                 {{ item.pub_date_format }}
             </td>
-            <td class="center">
+            <td class="center grab-cell">
                 {% if item.already_added %}
                 <span class="fa-solid fa-check"></span>
-                {% else %}
+                {% elif item.magnet %}
                 <form hx-post="/send-to-rqbit/" hx-swap="outerHTML">
-                    <input type="hidden" name="magnet" value="{{ item.guid }}">
-                    <button type="submit"><span class="fa-solid fa-magnet"></span></button>
+                    <input type="hidden" name="magnet" value="{{ item.magnet }}">
+                    <button type="submit" title="Grab magnet"><span class="fa-solid fa-magnet"></span></button>
                 </form>
+                {% else %}
+                <span class="muted" title="No magnet URL">—</span>
                 {% endif %}
             </td>
         </tr>
@@ -44,38 +117,208 @@
 
 <script>
 (() => {
-    const table = document.querySelector('#mainContent table');
+    const table = document.querySelector('#resultsTable');
     if (!table) return;
+
     const tbody = table.querySelector('tbody');
     const headers = table.querySelectorAll('th[data-sort-key]');
-    let current = { key: null, dir: 1 };
+    const selectAll = document.getElementById('selectAll');
+    const grabSelected = document.getElementById('grabSelected');
+    const selectedCount = document.getElementById('selectedCount');
+    const visibleCount = document.getElementById('visibleCount');
+    const sortPrimary = document.getElementById('sortPrimary');
+    const sortSecondary = document.getElementById('sortSecondary');
+    const clearSort = document.getElementById('clearSort');
+    const filterName = document.getElementById('filterName');
+    const filterMinSeeds = document.getElementById('filterMinSeeds');
+    const filterMinSize = document.getElementById('filterMinSize');
+    const filterMaxSize = document.getElementById('filterMaxSize');
+    const clearFilters = document.getElementById('clearFilters');
 
-    const getValue = (cell, type) => {
+    let current = { key: 'seeders', dir: -1, type: 'number' };
+
+    const allRows = () => Array.from(tbody.querySelectorAll('tr'));
+    const visibleRows = () => allRows().filter(r => r.style.display !== 'none');
+
+    const getValue = (row, key, type) => {
+        if (key === 'name') return (row.dataset.name || '').toLowerCase();
+        if (key === 'seeders') return Number(row.dataset.seeders) || 0;
+        if (key === 'size') return Number(row.dataset.size) || 0;
+        if (key === 'date') return Number(row.dataset.date) || 0;
+        const cell = row.querySelector(`td.${key}`);
         const raw = cell?.dataset.sort ?? cell?.textContent ?? '';
-        if (type === 'number') return Number(raw) || 0;
-        if (type === 'date') return Number(raw) || Date.parse(raw) || 0;
-        return raw.toLowerCase();
+        if (type === 'number' || type === 'date') return Number(raw) || 0;
+        return String(raw).toLowerCase();
     };
 
-    const sortRows = (key, type) => {
-        const rows = Array.from(tbody.querySelectorAll('tr'));
-        const dir = current.key === key ? -current.dir : -1; // default desc for numbers
-        current = { key, dir };
+    const parseSortValue = (value) => {
+        if (!value) return null;
+        const [key, dir] = value.split(':');
+        const type = key === 'name' ? 'string' : (key === 'date' ? 'date' : 'number');
+        return { key, dir: dir === 'asc' ? 1 : -1, type };
+    };
+
+    const compareRows = (a, b, spec) => {
+        if (!spec) return 0;
+        const av = getValue(a, spec.key, spec.type);
+        const bv = getValue(b, spec.key, spec.type);
+        if (av < bv) return -spec.dir;
+        if (av > bv) return spec.dir;
+        return 0;
+    };
+
+    const applySort = () => {
+        const primary = parseSortValue(sortPrimary.value) || current;
+        const secondary = parseSortValue(sortSecondary.value);
+        current = primary;
+        const rows = allRows();
         rows.sort((a, b) => {
-            const aCell = a.querySelector(`td.${key}`) ?? a.cells[0];
-            const bCell = b.querySelector(`td.${key}`) ?? b.cells[0];
-            const av = getValue(aCell, type);
-            const bv = getValue(bCell, type);
-            if (av < bv) return dir;
-            if (av > bv) return -dir;
-            return 0;
+            const primaryCmp = compareRows(a, b, primary);
+            if (primaryCmp !== 0) return primaryCmp;
+            return compareRows(a, b, secondary);
         });
         rows.forEach(row => tbody.appendChild(row));
+        headers.forEach(h => {
+            h.classList.toggle('sorted', h.dataset.sortKey === primary.key);
+            h.classList.toggle('asc', h.dataset.sortKey === primary.key && primary.dir === 1);
+            h.classList.toggle('desc', h.dataset.sortKey === primary.key && primary.dir === -1);
+        });
+    };
+
+    const applyFilters = () => {
+        const nameQ = (filterName.value || '').trim().toLowerCase();
+        const minSeeds = filterMinSeeds.value === '' ? null : Number(filterMinSeeds.value);
+        const minMb = filterMinSize.value === '' ? null : Number(filterMinSize.value);
+        const maxMb = filterMaxSize.value === '' ? null : Number(filterMaxSize.value);
+        const minBytes = minMb == null || Number.isNaN(minMb) ? null : minMb * 1024 * 1024;
+        const maxBytes = maxMb == null || Number.isNaN(maxMb) ? null : maxMb * 1024 * 1024;
+
+        allRows().forEach(row => {
+            const name = (row.dataset.name || '').toLowerCase();
+            const seeds = Number(row.dataset.seeders) || 0;
+            const size = Number(row.dataset.size) || 0;
+            let ok = true;
+            if (nameQ && !name.includes(nameQ)) ok = false;
+            if (minSeeds != null && !Number.isNaN(minSeeds) && seeds < minSeeds) ok = false;
+            if (minBytes != null && size < minBytes) ok = false;
+            if (maxBytes != null && size > maxBytes) ok = false;
+            row.style.display = ok ? '' : 'none';
+            if (!ok) {
+                const cb = row.querySelector('.row-select');
+                if (cb) cb.checked = false;
+            }
+        });
+        updateSelectionUi();
+    };
+
+    const updateSelectionUi = () => {
+        const visible = visibleRows();
+        const selectable = visible
+            .map(r => r.querySelector('.row-select'))
+            .filter(Boolean);
+        const selected = selectable.filter(cb => cb.checked);
+        selectedCount.textContent = `${selected.length} selected`;
+        visibleCount.textContent = `${visible.length} shown / ${allRows().length}`;
+        grabSelected.disabled = selected.length === 0;
+        if (!selectable.length) {
+            selectAll.checked = false;
+            selectAll.indeterminate = false;
+        } else {
+            selectAll.checked = selected.length === selectable.length;
+            selectAll.indeterminate = selected.length > 0 && selected.length < selectable.length;
+        }
+    };
+
+    const sortRowsFromHeader = (key, type) => {
+        const dir = current.key === key ? -current.dir : -1;
+        current = { key, dir, type };
+        const value = `${key}:${dir === 1 ? 'asc' : 'desc'}`;
+        if ([...sortPrimary.options].some(o => o.value === value)) {
+            sortPrimary.value = value;
+        }
+        applySort();
     };
 
     headers.forEach(h => {
         h.style.cursor = 'pointer';
-        h.addEventListener('click', () => sortRows(h.dataset.sortKey, h.dataset.sortType));
+        h.addEventListener('click', () => sortRowsFromHeader(h.dataset.sortKey, h.dataset.sortType));
     });
+
+    sortPrimary.addEventListener('change', applySort);
+    sortSecondary.addEventListener('change', applySort);
+    clearSort.addEventListener('click', () => {
+        sortPrimary.value = 'seeders:desc';
+        sortSecondary.value = '';
+        applySort();
+    });
+
+    [filterName, filterMinSeeds, filterMinSize, filterMaxSize].forEach(el => {
+        el.addEventListener('input', applyFilters);
+    });
+    clearFilters.addEventListener('click', () => {
+        filterName.value = '';
+        filterMinSeeds.value = '';
+        filterMinSize.value = '';
+        filterMaxSize.value = '';
+        applyFilters();
+    });
+
+    selectAll.addEventListener('change', () => {
+        visibleRows().forEach(row => {
+            const cb = row.querySelector('.row-select');
+            if (cb) cb.checked = selectAll.checked;
+        });
+        updateSelectionUi();
+    });
+
+    tbody.addEventListener('change', (event) => {
+        if (event.target.classList.contains('row-select')) updateSelectionUi();
+    });
+
+    const postMagnet = async (magnet) => {
+        try {
+            const response = await fetch('/send-to-rqbit/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'magnet=' + encodeURIComponent(magnet),
+            });
+            return response.ok;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    grabSelected.addEventListener('click', async () => {
+        const rows = visibleRows().filter(r => r.querySelector('.row-select')?.checked);
+        if (!rows.length) return;
+        grabSelected.disabled = true;
+        grabSelected.textContent = 'Grabbing…';
+        let ok = 0;
+        for (const row of rows) {
+            const magnet = row.dataset.magnet;
+            if (!magnet) continue;
+            const success = await postMagnet(magnet);
+            if (success) {
+                ok += 1;
+                const cell = row.querySelector('.grab-cell');
+                if (cell) cell.innerHTML = '<span class="fa-solid fa-check"></span>';
+                const cb = row.querySelector('.row-select');
+                if (cb) {
+                    cb.checked = false;
+                    cb.disabled = true;
+                    cb.remove();
+                }
+                delete row.dataset.magnet;
+            }
+        }
+        grabSelected.innerHTML = '<span class="fa-solid fa-magnet"></span> Grab selected';
+        updateSelectionUi();
+        if (ok) {
+            selectedCount.textContent = `Grabbed ${ok}`;
+        }
+    });
+
+    applySort();
+    applyFilters();
 })();
 </script>
