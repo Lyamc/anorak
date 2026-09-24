@@ -28,10 +28,7 @@ pub async fn main() {
 
     let app = Router::new()
         .route("/query/", post(routes::query::endpoint))
-        .route(
-            "/send-to-transmission/",
-            post(routes::send_to_transmission::endpoint),
-        )
+        .route("/send-to-rqbit/", post(routes::send_to_rqbit::endpoint))
         .nest_service("/", ServeDir::new("assets"));
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", CONFIG.port))
