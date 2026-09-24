@@ -10,11 +10,78 @@
 
 <body>
     <div id="container">
-        <form hx-post="/query/" hx-swap="innerHTML" hx-target="#mainContent" hx-trigger="submit">
-            <div class="search">
-                <input type="text" placeholder="search..." id="search_term" name="search_term" autofocus>
+        <div class="search-bar">
+            <form class="search-form" hx-post="/query/" hx-swap="innerHTML" hx-target="#mainContent" hx-trigger="submit">
+                <div class="search">
+                    <input type="text" placeholder="search..." id="search_term" name="search_term" autofocus>
+                </div>
+            </form>
+
+            <div class="search-dropdown" id="filterDropdown">
+                <button type="button" class="dropdown-toggle" id="filterToggle" aria-haspopup="true" aria-expanded="false" disabled>
+                    Filter
+                    <span class="active-dot" id="filterDot" hidden></span>
+                </button>
+                <div class="dropdown-panel" id="filterPanel" hidden>
+                    <label class="toolbar-field grow">
+                        <span>Name contains</span>
+                        <input type="text" id="filterName" placeholder="filter title…" autocomplete="off">
+                    </label>
+                    <div class="dropdown-grid">
+                        <label class="toolbar-field">
+                            <span>Min seeds</span>
+                            <input type="number" id="filterMinSeeds" min="0" step="1" placeholder="0">
+                        </label>
+                        <label class="toolbar-field">
+                            <span>Min size (MB)</span>
+                            <input type="number" id="filterMinSize" min="0" step="1" placeholder="0">
+                        </label>
+                        <label class="toolbar-field">
+                            <span>Max size (MB)</span>
+                            <input type="number" id="filterMaxSize" min="0" step="1" placeholder="∞">
+                        </label>
+                    </div>
+                    <button type="button" id="clearFilters" class="toolbar-btn">Clear filters</button>
+                </div>
             </div>
-        </form>
+
+            <div class="search-dropdown" id="sortDropdown">
+                <button type="button" class="dropdown-toggle" id="sortToggle" aria-haspopup="true" aria-expanded="false" disabled>
+                    Sort
+                    <span class="active-dot" id="sortDot" hidden></span>
+                </button>
+                <div class="dropdown-panel" id="sortPanel" hidden>
+                    <label class="toolbar-field grow">
+                        <span>Sort</span>
+                        <select id="sortPrimary">
+                            <option value="seeders:desc" selected>Most seeds</option>
+                            <option value="seeders:asc">Least seeds</option>
+                            <option value="size:desc">Largest</option>
+                            <option value="size:asc">Smallest</option>
+                            <option value="date:desc">Newest</option>
+                            <option value="date:asc">Oldest</option>
+                            <option value="name:asc">Title A–Z</option>
+                            <option value="name:desc">Title Z–A</option>
+                        </select>
+                    </label>
+                    <label class="toolbar-field grow">
+                        <span>Then</span>
+                        <select id="sortSecondary">
+                            <option value="" selected>None</option>
+                            <option value="seeders:desc">Most seeds</option>
+                            <option value="seeders:asc">Least seeds</option>
+                            <option value="size:desc">Largest</option>
+                            <option value="size:asc">Smallest</option>
+                            <option value="date:desc">Newest</option>
+                            <option value="date:asc">Oldest</option>
+                            <option value="name:asc">Title A–Z</option>
+                            <option value="name:desc">Title Z–A</option>
+                        </select>
+                    </label>
+                    <button type="button" id="clearSort" class="toolbar-btn" title="Reset sort to most seeds">Clear sort</button>
+                </div>
+            </div>
+        </div>
         <div id="mainContent"></div>
     </div>
 
@@ -37,6 +104,67 @@
                     expandedCell = cell;
                 } else {
                     expandedCell = null;
+                }
+            });
+
+            const filterToggle = document.getElementById('filterToggle');
+            const sortToggle = document.getElementById('sortToggle');
+            const filterPanel = document.getElementById('filterPanel');
+            const sortPanel = document.getElementById('sortPanel');
+            const filterDropdown = document.getElementById('filterDropdown');
+            const sortDropdown = document.getElementById('sortDropdown');
+
+            const closeDropdowns = () => {
+                filterPanel.hidden = true;
+                sortPanel.hidden = true;
+                filterToggle.setAttribute('aria-expanded', 'false');
+                sortToggle.setAttribute('aria-expanded', 'false');
+                filterDropdown.classList.remove('open');
+                sortDropdown.classList.remove('open');
+            };
+
+            const toggleDropdown = (which) => {
+                const openingFilter = which === 'filter' && filterPanel.hidden;
+                const openingSort = which === 'sort' && sortPanel.hidden;
+                closeDropdowns();
+                if (openingFilter) {
+                    filterPanel.hidden = false;
+                    filterToggle.setAttribute('aria-expanded', 'true');
+                    filterDropdown.classList.add('open');
+                } else if (openingSort) {
+                    sortPanel.hidden = false;
+                    sortToggle.setAttribute('aria-expanded', 'true');
+                    sortDropdown.classList.add('open');
+                }
+            };
+
+            filterToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (filterToggle.disabled) return;
+                toggleDropdown('filter');
+            });
+            sortToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (sortToggle.disabled) return;
+                toggleDropdown('sort');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!(e.target instanceof Element)) return;
+                if (e.target.closest('.search-dropdown')) return;
+                closeDropdowns();
+            });
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeDropdowns();
+            });
+
+            // Disable Filter/Sort while a new search is in flight
+            document.body.addEventListener('htmx:beforeRequest', (e) => {
+                if (e.detail?.target?.id === 'mainContent') {
+                    closeDropdowns();
+                    filterToggle.disabled = true;
+                    sortToggle.disabled = true;
                 }
             });
         })();
