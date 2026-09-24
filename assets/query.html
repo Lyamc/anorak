@@ -1,54 +1,5 @@
 {% if items is defined and items|length > 0 %}
 <div class="results-toolbar" id="resultsToolbar">
-    <div class="toolbar-row">
-        <label class="toolbar-field">
-            <span>Sort</span>
-            <select id="sortPrimary">
-                <option value="seeders:desc" selected>Most seeds</option>
-                <option value="seeders:asc">Least seeds</option>
-                <option value="size:desc">Largest</option>
-                <option value="size:asc">Smallest</option>
-                <option value="date:desc">Newest</option>
-                <option value="date:asc">Oldest</option>
-                <option value="name:asc">Title A–Z</option>
-                <option value="name:desc">Title Z–A</option>
-            </select>
-        </label>
-        <label class="toolbar-field">
-            <span>Then</span>
-            <select id="sortSecondary">
-                <option value="" selected>None</option>
-                <option value="seeders:desc">Most seeds</option>
-                <option value="seeders:asc">Least seeds</option>
-                <option value="size:desc">Largest</option>
-                <option value="size:asc">Smallest</option>
-                <option value="date:desc">Newest</option>
-                <option value="date:asc">Oldest</option>
-                <option value="name:asc">Title A–Z</option>
-                <option value="name:desc">Title Z–A</option>
-            </select>
-        </label>
-        <button type="button" id="clearSort" class="toolbar-btn" title="Reset sort to most seeds">Clear sort</button>
-    </div>
-    <div class="toolbar-row">
-        <label class="toolbar-field grow">
-            <span>Name contains</span>
-            <input type="text" id="filterName" placeholder="filter title…" autocomplete="off">
-        </label>
-        <label class="toolbar-field">
-            <span>Min seeds</span>
-            <input type="number" id="filterMinSeeds" min="0" step="1" placeholder="0">
-        </label>
-        <label class="toolbar-field">
-            <span>Min size (MB)</span>
-            <input type="number" id="filterMinSize" min="0" step="1" placeholder="0">
-        </label>
-        <label class="toolbar-field">
-            <span>Max size (MB)</span>
-            <input type="number" id="filterMaxSize" min="0" step="1" placeholder="∞">
-        </label>
-        <button type="button" id="clearFilters" class="toolbar-btn">Clear filters</button>
-    </div>
     <div class="toolbar-row actions">
         <span id="visibleCount" class="toolbar-meta"></span>
         <span id="selectedCount" class="toolbar-meta">0 selected</span>
@@ -118,14 +69,10 @@
 <script>
 (() => {
     const table = document.querySelector('#resultsTable');
-    if (!table) return;
-
-    const tbody = table.querySelector('tbody');
-    const headers = table.querySelectorAll('th[data-sort-key]');
-    const selectAll = document.getElementById('selectAll');
-    const grabSelected = document.getElementById('grabSelected');
-    const selectedCount = document.getElementById('selectedCount');
-    const visibleCount = document.getElementById('visibleCount');
+    const filterToggle = document.getElementById('filterToggle');
+    const sortToggle = document.getElementById('sortToggle');
+    const filterDot = document.getElementById('filterDot');
+    const sortDot = document.getElementById('sortDot');
     const sortPrimary = document.getElementById('sortPrimary');
     const sortSecondary = document.getElementById('sortSecondary');
     const clearSort = document.getElementById('clearSort');
@@ -135,7 +82,38 @@
     const filterMaxSize = document.getElementById('filterMaxSize');
     const clearFilters = document.getElementById('clearFilters');
 
+    // Tear down prior results handlers (new search replaces #mainContent)
+    if (window.__anorakResultsCleanup) {
+        window.__anorakResultsCleanup();
+        window.__anorakResultsCleanup = null;
+    }
+
+    if (!table) {
+        if (filterToggle) filterToggle.disabled = true;
+        if (sortToggle) sortToggle.disabled = true;
+        if (filterDot) filterDot.hidden = true;
+        if (sortDot) sortDot.hidden = true;
+        return;
+    }
+
+    if (filterToggle) filterToggle.disabled = false;
+    if (sortToggle) sortToggle.disabled = false;
+
+    const tbody = table.querySelector('tbody');
+    const headers = table.querySelectorAll('th[data-sort-key]');
+    const selectAll = document.getElementById('selectAll');
+    const grabSelected = document.getElementById('grabSelected');
+    const selectedCount = document.getElementById('selectedCount');
+    const visibleCount = document.getElementById('visibleCount');
+
     let current = { key: 'seeders', dir: -1, type: 'number' };
+    const listeners = [];
+
+    const on = (el, event, handler) => {
+        if (!el) return;
+        el.addEventListener(event, handler);
+        listeners.push([el, event, handler]);
+    };
 
     const allRows = () => Array.from(tbody.querySelectorAll('tr'));
     const visibleRows = () => allRows().filter(r => r.style.display !== 'none');
@@ -167,9 +145,24 @@
         return 0;
     };
 
+    const updateActiveDots = () => {
+        const filtersActive = !!(
+            (filterName?.value || '').trim() ||
+            filterMinSeeds?.value !== '' ||
+            filterMinSize?.value !== '' ||
+            filterMaxSize?.value !== ''
+        );
+        const sortActive = !(
+            sortPrimary?.value === 'seeders:desc' &&
+            (sortSecondary?.value || '') === ''
+        );
+        if (filterDot) filterDot.hidden = !filtersActive;
+        if (sortDot) sortDot.hidden = !sortActive;
+    };
+
     const applySort = () => {
-        const primary = parseSortValue(sortPrimary.value) || current;
-        const secondary = parseSortValue(sortSecondary.value);
+        const primary = parseSortValue(sortPrimary?.value) || current;
+        const secondary = parseSortValue(sortSecondary?.value);
         current = primary;
         const rows = allRows();
         rows.sort((a, b) => {
@@ -183,13 +176,14 @@
             h.classList.toggle('asc', h.dataset.sortKey === primary.key && primary.dir === 1);
             h.classList.toggle('desc', h.dataset.sortKey === primary.key && primary.dir === -1);
         });
+        updateActiveDots();
     };
 
     const applyFilters = () => {
-        const nameQ = (filterName.value || '').trim().toLowerCase();
-        const minSeeds = filterMinSeeds.value === '' ? null : Number(filterMinSeeds.value);
-        const minMb = filterMinSize.value === '' ? null : Number(filterMinSize.value);
-        const maxMb = filterMaxSize.value === '' ? null : Number(filterMaxSize.value);
+        const nameQ = (filterName?.value || '').trim().toLowerCase();
+        const minSeeds = filterMinSeeds?.value === '' ? null : Number(filterMinSeeds.value);
+        const minMb = filterMinSize?.value === '' ? null : Number(filterMinSize.value);
+        const maxMb = filterMaxSize?.value === '' ? null : Number(filterMaxSize.value);
         const minBytes = minMb == null || Number.isNaN(minMb) ? null : minMb * 1024 * 1024;
         const maxBytes = maxMb == null || Number.isNaN(maxMb) ? null : maxMb * 1024 * 1024;
 
@@ -209,6 +203,7 @@
             }
         });
         updateSelectionUi();
+        updateActiveDots();
     };
 
     const updateSelectionUi = () => {
@@ -233,7 +228,7 @@
         const dir = current.key === key ? -current.dir : -1;
         current = { key, dir, type };
         const value = `${key}:${dir === 1 ? 'asc' : 'desc'}`;
-        if ([...sortPrimary.options].some(o => o.value === value)) {
+        if (sortPrimary && [...sortPrimary.options].some(o => o.value === value)) {
             sortPrimary.value = value;
         }
         applySort();
@@ -241,29 +236,29 @@
 
     headers.forEach(h => {
         h.style.cursor = 'pointer';
-        h.addEventListener('click', () => sortRowsFromHeader(h.dataset.sortKey, h.dataset.sortType));
+        on(h, 'click', () => sortRowsFromHeader(h.dataset.sortKey, h.dataset.sortType));
     });
 
-    sortPrimary.addEventListener('change', applySort);
-    sortSecondary.addEventListener('change', applySort);
-    clearSort.addEventListener('click', () => {
-        sortPrimary.value = 'seeders:desc';
-        sortSecondary.value = '';
+    on(sortPrimary, 'change', applySort);
+    on(sortSecondary, 'change', applySort);
+    on(clearSort, 'click', () => {
+        if (sortPrimary) sortPrimary.value = 'seeders:desc';
+        if (sortSecondary) sortSecondary.value = '';
         applySort();
     });
 
     [filterName, filterMinSeeds, filterMinSize, filterMaxSize].forEach(el => {
-        el.addEventListener('input', applyFilters);
+        on(el, 'input', applyFilters);
     });
-    clearFilters.addEventListener('click', () => {
-        filterName.value = '';
-        filterMinSeeds.value = '';
-        filterMinSize.value = '';
-        filterMaxSize.value = '';
+    on(clearFilters, 'click', () => {
+        if (filterName) filterName.value = '';
+        if (filterMinSeeds) filterMinSeeds.value = '';
+        if (filterMinSize) filterMinSize.value = '';
+        if (filterMaxSize) filterMaxSize.value = '';
         applyFilters();
     });
 
-    selectAll.addEventListener('change', () => {
+    on(selectAll, 'change', () => {
         visibleRows().forEach(row => {
             const cb = row.querySelector('.row-select');
             if (cb) cb.checked = selectAll.checked;
@@ -271,7 +266,7 @@
         updateSelectionUi();
     });
 
-    tbody.addEventListener('change', (event) => {
+    on(tbody, 'change', (event) => {
         if (event.target.classList.contains('row-select')) updateSelectionUi();
     });
 
@@ -288,7 +283,7 @@
         }
     };
 
-    grabSelected.addEventListener('click', async () => {
+    on(grabSelected, 'click', async () => {
         const rows = visibleRows().filter(r => r.querySelector('.row-select')?.checked);
         if (!rows.length) return;
         grabSelected.disabled = true;
@@ -317,6 +312,10 @@
             selectedCount.textContent = `Grabbed ${ok}`;
         }
     });
+
+    window.__anorakResultsCleanup = () => {
+        listeners.forEach(([el, event, handler]) => el.removeEventListener(event, handler));
+    };
 
     applySort();
     applyFilters();
