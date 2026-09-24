@@ -1,37 +1,66 @@
 # Anorak
 
-Anorak is a self-hosted media app for requesting torrents from Jackett and sending them to web based bittorrent servers like Transmission.
-Its purpose is to be a general purpose Torrent grabber, as opposed to specialized grabbers such as Sonarr, Radarr and SickChill.
+Anorak is a self-hosted app for searching a Torznab indexer and sending the result to Transmission.
+It is a general-purpose torrent grabber, rather than a show or movie manager.
 
-Developed using Rust / Axum / MiniJinja / HTMX
+It is written with Rust, Axum, MiniJinja, and HTMX.
 
-![image](https://github.com/stephanmeesters/anorak/assets/14291421/207256dc-20e0-4d63-bef7-844ca1f315ec)
+## NixOS
 
-## How to use
+Anorak does not need Docker. Build it from this repository and run it as a systemd service.
 
-- Install Jackett - https://docs.linuxserver.io/images/docker-jackett/
-- Install Transmission - https://docs.linuxserver.io/images/docker-transmission/
+```nix
+imports = [ /path/to/anorak/nix/module.nix ];
 
-You can run the Docker container using the following prompt:
-
-```
-docker run -it -d \
-    --name=anorak \
-    -e PUID=1000 \
-    -e PGID=1000 \
-    -p 9341:9341\
-    -e JACKETT_URL=[your-jackett-torznab-url] \
-    -e JACKETT_APIKEY=[your-jackett-apikey] \
-    -e TRANSMISSION_URL=[your-transmission-URL] \
-    --restart unless-stopped \
-    stephanm123/anorak:latest
+services.anorak = {
+  enable = true;
+  jackettUrl = "http://127.0.0.1:3420/api/v2.0/indexers/all/results/torznab";
+  jackettApiKey = "lodestarr";
+  transmissionUrl = "http://127.0.0.1:9091/transmission/rpc";
+};
 ```
 
-- JACKETT_URL is for example `http://192.168.2.10:9117/api/v2.0/indexers/sometorrentprovider/results/torznab`
-- JACKETT_APIKEY can be obtained from the Jackett page
-- TRANSMISSION_URL is for example `http://192.168.2.10:9091/transmission/rpc`
+`jackettUrl` is the Torznab results URL. Lodestarr and Jackett both provide that API.
+`jackettApiKey` is sent with each search. Lodestarr accepts any value.
+`transmissionUrl` is the Transmission RPC endpoint. Anorak does not send a username or password.
 
-Currently Anorak does not support a user/password combo for Transmission.
+The service listens on port 9341. Set `openFirewall = true` only when it should be reachable on the host's own network.
+
+To build the package by itself:
+
+```bash
+nix-build -E 'with import <nixpkgs> {}; callPackage ./nix/package.nix {}'
+```
+
+The pages are loaded from `assets/` in the process working directory. The NixOS module sets that directory to the package's `$out/share/anorak`.
+
+### Only this service uses a VPN namespace
+
+Create a network namespace that has no route except the VPN, with `/etc/netns/<name>/resolv.conf` pointing at resolvers reached through that tunnel. Then:
+
+```nix
+services.anorak = {
+  enable = true;
+  networkNamespace = "nordvpn";
+  namespaceService = "nordvpn-netns.service";
+  jackettUrl = "http://127.0.0.1:3420/api/v2.0/indexers/all/results/torznab";
+  jackettApiKey = "lodestarr";
+  transmissionUrl = "http://127.0.0.1:9091/transmission/rpc";
+};
+```
+
+`namespaceService` is the unit that creates the namespace. Anorak waits for it and stops with it. Other programs on the machine keep the normal route. From the host, reach the UI at the namespace's address, for example `http://10.200.200.2:9341` when that address is the namespace end of a veth pair.
+
+## Run from a checkout
+
+```bash
+export JACKETT_URL=http://127.0.0.1:3420/api/v2.0/indexers/all/results/torznab
+export JACKETT_APIKEY=lodestarr
+export TRANSMISSION_URL=http://127.0.0.1:9091/transmission/rpc
+cargo run
+```
+
+The example `JACKETT_URL` asks one indexer. Replace `all` with an indexer id to search only that indexer.
 
 ## Development goals
 
