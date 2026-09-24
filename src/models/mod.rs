@@ -81,4 +81,24 @@ pub struct Query {
 #[derive(Serialize, Deserialize)]
 pub struct SendToTransmission {
     pub magnet: String,
+    /// Optional Newznab/Torznab category id (may be empty when unknown).
+    #[serde(default)]
+    pub category: Option<String>,
+}
+
+/// Pick one Torznab category id from a list of category strings.
+/// Prefers 5070 (Anime); else the most specific (non-thousand) id; else the first parseable.
+pub fn prefer_torznab_category(categories: &[String]) -> Option<u32> {
+    let parsed: Vec<u32> = categories.iter().filter_map(|c| c.trim().parse().ok()).collect();
+    if parsed.is_empty() {
+        return None;
+    }
+    if parsed.iter().any(|&c| c == 5070) {
+        return Some(5070);
+    }
+    // Prefer subcategory (non-round thousands) over generic bucket.
+    parsed
+        .iter()
+        .copied()
+        .max_by_key(|c| (if c % 1000 == 0 { 0u8 } else { 1u8 }, *c))
 }

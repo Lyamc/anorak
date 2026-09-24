@@ -28,7 +28,8 @@
             data-seeders="{{ item.seeders }}"
             data-size="{{ item.size }}"
             data-date="{{ item.pub_date }}"
-            data-magnet="{{ item.magnet }}">
+            data-magnet="{{ item.magnet }}"
+            data-category="{{ item.category }}">
             <td class="select">
                 {% if not item.already_added and item.magnet %}
                 <input type="checkbox" class="row-select" aria-label="Select {{ item.title }}">
@@ -52,6 +53,9 @@
                 {% elif item.magnet %}
                 <form hx-post="/send-to-rqbit/" hx-swap="outerHTML">
                     <input type="hidden" name="magnet" value="{{ item.magnet }}">
+                    {% if item.category %}
+                    <input type="hidden" name="category" value="{{ item.category }}">
+                    {% endif %}
                     <button type="submit" title="Grab magnet"><span class="fa-solid fa-magnet"></span></button>
                 </form>
                 {% else %}
@@ -270,12 +274,16 @@
         if (event.target.classList.contains('row-select')) updateSelectionUi();
     });
 
-    const postMagnet = async (magnet) => {
+    const postMagnet = async (magnet, category) => {
         try {
+            let body = 'magnet=' + encodeURIComponent(magnet);
+            if (category) {
+                body += '&category=' + encodeURIComponent(category);
+            }
             const response = await fetch('/send-to-rqbit/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'magnet=' + encodeURIComponent(magnet),
+                body,
             });
             return response.ok;
         } catch (_) {
@@ -292,7 +300,8 @@
         for (const row of rows) {
             const magnet = row.dataset.magnet;
             if (!magnet) continue;
-            const success = await postMagnet(magnet);
+            const category = row.dataset.category || '';
+            const success = await postMagnet(magnet, category);
             if (success) {
                 ok += 1;
                 const cell = row.querySelector('.grab-cell');
