@@ -37,11 +37,15 @@ async fn gather_items_json(search_query: &str) -> Result<Value> {
         .iter()
         .map(|it| {
             let magnet = it.magnet_link();
+            let category = models::prefer_torznab_category(&it.category)
+                .map(|c| c.to_string())
+                .unwrap_or_default();
             context! {
                 already_added => known_torrents.iter().any(|t| t.contains(&it.title)),
                 title => it.title,
                 guid => it.guid,
                 magnet => magnet,
+                category => category,
                 seeders => it.seeders,
                 peers => it.peers,
                 pub_date => utils::format_date_unix(&it.pub_date),
@@ -140,6 +144,11 @@ fn normalize_torznab_xml(xml: &str) -> String {
                 out.push('/');
                 out.push_str(name);
                 out.push('>');
+            } else if name == "category" {
+                // Supplement <category> elements from torznab:attr.
+                out.push_str("<category>");
+                out.push_str(value);
+                out.push_str("</category>");
             }
         }
         rest = &after[end..];
