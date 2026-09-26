@@ -1,0 +1,6 @@
+# size variants, strip=none builds (see note), trunk wasm-opt -Os; bytes
+base       raw=7306781 gz9=2831959 br11=2035868
+z          raw=6460534 gz9=2539535 br11=1876766
+locnone    raw=7094003 gz9=2760228 br11=1983657
+bstd       raw=6959077 gz9=2716107 br11=1967763
+bstdpia2   raw=6555465 gz9=2574123 br11=1865541

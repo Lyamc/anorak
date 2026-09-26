@@ -1,0 +1,8 @@
+# clean wasm builds of fa62dd9 on HYTE, fresh CARGO_TARGET_DIR each, run one at a time,
+# build-web.ps1 (trunk 0.21.14, nightly, build-std, opt-level z, wasm-opt -Oz); Measure-Command seconds
+final2 clean build_s=143.6 exit=0
+final3 clean build_s=143.9 exit=0 wasm=5569294 anorak-gpui-6af4363b77e6d7f2_bg.wasm
+final4 clean build_s=143.7 exit=0 wasm=5569294 anorak-gpui-6af4363b77e6d7f2_bg.wasm
+# (same wasm hash in all three: reproducible)
+# native: cargo +stable-x86_64-pc-windows-msvc build --release, fresh target dir, 1 run
+native-final build_s=98.2 exit=0 exe=11845632

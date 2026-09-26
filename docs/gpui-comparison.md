@@ -179,6 +179,11 @@ client needs no install. See `anorak-gpui/README.md` for the build.
 
 ### Results (2026-09-25)
 
+> These are the numbers **before** the size and startup work. See
+> "Size and startup optimization (2026-09-26)" below for the current build:
+> 5.7 MB raw / 1.7–2.3 MB on the wire, no WebGL2 startup stall, and no
+> dropped scroll frame in Chrome.
+
 Same machine, window size, fixture servers and in-app `bench` script as
 above. The wasm client logs the same events as the native `--bench` mode to
 `window.__anorakBench`, stamped at the paint of the frame that shows the
@@ -213,6 +218,9 @@ Notes on the table:
   which comes from a blocking `device.poll(Wait)` in `gpui_wgpu`'s resize path.
   So it looks like a fixed stall rather than real work, and probably
   fixable upstream (not confirmed with a profile). WebGPU does not have it.
+  *Later profiling showed the real cause: blocking GL program link-status
+  queries while all pipelines are created up front. The poll warning was a
+  red herring. This is fixed, see the optimization section.*
   On a warm visit Chrome reaches the first frame in about 90 ms (WebGL2),
   faster than the native exe's 205 ms. Firefox does not get that speed-up in
   this setup (warm 263 ms on WebGPU, 627 ms on WebGL2; not investigated).
@@ -231,6 +239,8 @@ Notes on the table:
   GPU process holds more (272–332 MB private).
 - **The dropped frame in Chrome** happened once per 120-frame scroll, on both
   backends, and not in Firefox or native. It was not investigated further.
+  *Later: this was Chrome's first-use system-font lookup for the fixture's
+  CJK title. It is fixed, see the optimization section.*
 - Chrome was measured on build `4f86613` (the commit before the key-binding
   fixes). Firefox and the sizes table below use the final build `e06f127`,
   which is 8 KB larger and differs only in key bindings and the tab stop.
@@ -248,7 +258,8 @@ The raw rustc output before `wasm-opt -Os` was 9,423,220 B. The anorak server
 does not compress any response, so today the browser downloads the full
 7.45 MB. Adding compression (e.g. `tower-http` `CompressionLayer`, or
 precompressed `.br` files served by `ServeDir`) would cut that to about
-2.05 MB. It was left out to keep the server change small.
+2.05 MB. It was left out to keep the server change small. *(It has been
+added since: precompressed files, see the optimization section.)*
 
 ### Method (wasm)
 
@@ -340,3 +351,221 @@ were tested in Chrome only.
   and lets the browser's own clipboard handling work in the browser.
 - `?server=` pointing at another origin needs CORS on that server. The
   default is the page's own origin.
+
+## Size and startup optimization (2026-09-26)
+
+Work on `feature/gpui-wasm` after `5a6767d`: a smaller bundle, compressed
+transfer, a fix for the WebGL2 startup stall, and a fix for Chrome's dropped
+scroll frame. Behaviour is unchanged. The Chrome and Firefox parity passes
+above were rerun on the final build with the same results (see "Parity after
+the changes").
+
+### Before / after
+
+Everything is the median of **3 runs**, with the same harnesses, fixtures,
+window size and machine as above. **Before** is the unchanged bundle
+(`e06f127`, served without compression), re-measured today straight before
+and between the "after" runs. **After** is `fa62dd9`, built with
+`build-web.ps1` and served precompressed. The before numbers were measured
+again because HYTE's frame pacing changed since 2026-09-25. On the old
+bundle, Chrome's mean scroll interval went from 16.6 to 17.7 ms and Firefox
+now scrolls at about 30 ms per frame (see caveats). So compare only within
+this table, not against the 5-run table above.
+
+| Metric | Chrome 154 WebGL2: before → after | Chrome 154 WebGPU¹: before → after | Firefox 147 WebGL2: before → after | Firefox 147 WebGPU¹: before → after |
+|---|---|---|---|---|
+| **Bundle, raw** (wasm + js + html) | 7,457,477 B → **5,733,046 B** (−23 %) | same | same | same |
+| **Sent over the wire, cold load** | 7,457,477 B uncompressed → **2,282,018 B** gzip² | same | same → gzip² (the harness does not record Firefox's byte count) | same |
+| Sent to a browser that accepts br (https) | – → **1,710,240 B** br (−77 %; curl) | same | same | same |
+| **Cold first frame** (nav start → paint) | 713 → **219 ms** | 472 → **200** | 734 → **201** | 569 → **461** |
+| └ wasm start → first frame | 492 → **52** | 96 → 95 | 495 → **33** | 313 → 297 |
+| └ wasm responseEnd (LAN download) | 209 → 157 | 357 → 95 | 231 → 161 | 252 → 157 |
+| **Warm first frame** | 84.6 → **49.0** | 172 → 126 | 589 → **116** | 320 → 334 |
+| └ wasm start → first frame | 46.7 → 14.6 | 92.2 → 89.3 | 474 → 14 | 214 → 228 |
+| **Search → 100 rows** | 83.1 → 75.3 | 79.8 → 71.3 | 90 → 92 | 88 → 89 |
+| **Memory after the script**, private | renderer 172.2 → **159.8 MB**; GPU process 138.0 → 127.4 | renderer 142.9 → 136.3; GPU 192.3 → 190.5 | content 80.6 → 77.8; GPU 282.1 → 280.5 | content 80.3 → 76.3; GPU 342 → 348 |
+| wasm linear memory (first frame / after script)³ | 5.6 / 9.3 MiB → 5.4 / 9.0 MiB | not measured | not measured | not measured |
+| **Scroll** 120 × 20 px: mean / max interval | 17.7 / **35.3** → 17.6 / **20.8 ms** | 17.6 / 38.4 → 17.6 / 20.5 | 23.3 / 36 → 24.3 / 37 | 23.2 / 38 → 23.1 / 34 |
+| Runs with a dropped frame (> 25 ms) | **3 of 3 → 0 of 3** | 3 of 3 → 0 of 3 | 3 of 3 → 3 of 3 (half-rate today, both builds) | 3 of 3 → 3 of 3 (same) |
+| Frame build mean (CPU) | 2.2 → 2.1 | 1.9 → 2.2 | 2.0 → 2.1 | 1.9 → 2.1 |
+| Filter/sort → frame (median of all toggles) | 4.3 → 4.5 | 3.6 → 4.4 | 4.0 → 4.5 | 4.0 → 5.0 |
+| **Clean build** (HYTE, fresh target dir) | `trunk build --release` 156.2 s (from the table above, 1 run) → `build-web.ps1` **143.7 s** (median of 3: 143.6, 143.7, 143.9 s) | same | same | same |
+
+¹ WebGPU runs on a LAN http origin that was marked as secure, the same method
+as before (Chrome `--unsafely-treat-insecure-origin-as-secure`, Firefox
+`dom.securecontext.allowlist`).
+² Browsers only send `Accept-Encoding: br` on https, so on the plain-http LAN
+demo they get the `.gz`. Chrome's CDP byte counts: wasm 2,258,174 B, js
+23,557 B, html 948 B. On an https deployment they would get brotli.
+³ `memprobe.mjs`: `WebAssembly.Memory.buffer.byteLength` in a fresh Chrome
+profile.
+
+Native exe (`cargo build --release`, stable MSVC): **11,865,600 →
+11,845,632 B** (−20 KB, from the log-level change). A clean build took 98.2 s
+(1 run, so not a
+meaningful change from 105.2 s). The wasm-only changes (fonts, vendored `gpui_wgpu`,
+which Windows does not use, build-std, opt-level z) do not touch the native
+exe.
+
+### What each change bought
+
+| Change | Size effect | Time effect |
+|---|---|---|
+| **Lazy render pipelines on wasm** (vendored `gpui_wgpu`, `[patch]`, `vendor/gpui_wgpu/PATCHES.md`) | – | **The WebGL2 startup stall is gone.** Chrome wasm start → frame 492 → 52 ms cold, 47 → 15 warm; Firefox 495 → 33 cold, 474 → 14 warm. No effect on WebGPU. |
+| No `device.poll(Wait)` on resize on wasm | – | None. It never blocked (see root cause); it only removes the "Failed to poll device during resize: Timeout" warning. |
+| `log` `release_max_level_info` (wasm and native) | Included in the combined build below; not measured on its own | – |
+| Font subset (`assets/fonts/ibm-plex-sans/README.md`) | fonts 403,132 → 288,816 B raw, −39 KB brotli | – |
+| `opt-level = "z"` (vs "s") | final configuration: wasm 6,310,596 → 5,566,379 B, brotli 1,819,647 → 1,690,031 (−7 %) | None measurable. Chrome WebGL2, 3 runs each: frame build mean 2.0 (s) vs 2.3 (z), search → rows 71.7 vs 75.3, filter/sort 5.8 vs 5.6, cold wasm start → frame 55.8 vs 52.8. All inside run-to-run noise. |
+| `-Zbuild-std=std,panic_abort` + `optimize_for_size` + `-Cpanic=immediate-abort` (`build-web.sh` / `.ps1`) | build-std alone −3.3 % brotli; with immediate-abort −8.4 % brotli (7,306,781 → 6,555,465 B raw)⁵ | – |
+| Precompressed `.br`/`.gz` served by `ServeDir` (`precompress.sh`, `Vary: accept-encoding`) | Wire: 7.46 MB → 2.28 MB (gzip, http) / 1.71 MB (brotli, https) | wasm responseEnd on the LAN: Chrome WebGL2 209 → 157 ms, WebGPU 357 → 95 (median; the LAN is fast, so this matters more on slower links) |
+| Warm the browser font fallback for CJK/emoji titles after results arrive (`app.rs`) | +3 KB wasm | **Chrome's dropped frame is gone.** Max scroll interval 35.3 → 20.8 ms (WebGL2) and 38.4 → 20.5 (WebGPU); 0 of 6 runs dropped a frame, against 6 of 6 before |
+| **All together** | wasm 7,295,780 → **5,569,294 B** raw (−24 %), brotli 2,032,324 → 1,690,207 (−17 %), gzip 2,836,522 → 2,257,940 (−20 %) | cold first frame 713 → 219 ms (Chrome WebGL2), 734 → 201 (Firefox WebGL2) |
+
+⁵ These build-flag steps were measured on separate trunk builds of the same
+source with `wasm-opt -Os` (`opt/opt_variants_sizes.txt`). Those builds had
+`strip = none` by mistake (a leftover env var), so their absolute sizes run
+about 11 KB high; the relative savings are what matter. `-Zlocation-detail=none`
+on its own saved 2.6 % brotli but is included in immediate-abort, so it is
+not used separately.
+
+**Build time:** clean trunk build 156.2 s before (1 run, 2026-09-25) and
+143.7 s after (median of 3, `opt/clean-build-times.txt`), even though
+build-std now compiles std as well. Size variants built two at a time are
+not used for timing.
+
+### Root cause of the WebGL2 startup stall
+
+A CDP CPU profile of a cold Chrome WebGL2 load (`startprof.mjs`) put **412 ms
+of the ~500 ms** between wasm start and first frame in
+`WebGL2RenderingContext.getProgramParameter`, plus 20 ms in
+`getShaderParameter`. `gpui_wgpu` created all its render pipelines up front:
+quads, shadows, path rasterization, paths, underlines, mono sprites, poly
+sprites, and surfaces. Subpixel sprites are skipped on WebGL2, and surfaces
+is never drawn on wgpu. On the GLES backend, wgpu-hal links each program and
+straight away queries `LINK_STATUS`. That query is synchronous and waits
+while ANGLE (D3D11) compiles the shaders, about 50 ms per pipeline with a
+cold shader cache. Chrome's GPU shader cache hides this on warm loads
+(6–8 ms). Firefox has no persistent cache, which is why it was just as slow
+warm (474 ms). The "Failed to poll device during resize: Timeout" warning
+was a red herring. wgpu-hal's GLES `wait()` uses a zero timeout on WebGL
+(`MAX_CLIENT_WAIT_TIMEOUT_WEBGL = 0`), so it returns Timeout at once without
+stalling.
+
+**Fix (in our client):** pipelines are created on first use on wasm. The
+first frame now compiles only quads and mono sprites. The others are
+compiled when first needed: shadows when a popover opens, and so on. Each
+first use costs a few ms at that point.
+
+**Upstream note (draft for a Zed / wgpu issue):**
+> *gpui_wgpu: eager pipeline creation blocks WebGL2 startup for ~400 ms.*
+> `WgpuRenderer::new` builds every render pipeline up front. On WebGL2,
+> wgpu-hal's GLES backend links each program and calls
+> `getProgramParameter(LINK_STATUS)` right away, which blocks until the
+> driver finishes compiling. With a cold shader cache (Chrome 154 / ANGLE
+> D3D11, Windows 11, RTX 3060) that was 412 ms of the 500 ms between wasm
+> start and the first frame; Firefox 147 hits it on every load. Creating
+> pipelines lazily (only quads + mono sprites are needed for a first frame)
+> brings wasm start → first frame to ~50 ms. A longer-term fix in wgpu-hal
+> would be to poll `COMPLETION_STATUS_KHR` (`KHR_parallel_shader_compile`)
+> instead of blocking on `LINK_STATUS`. The `surfaces` pipeline is never used
+> by the wgpu renderer. Separately, the `device.poll(Wait)` in
+> `update_drawable_size` cannot block on the web and only logs
+> "Failed to poll device during resize: Timeout".
+
+### Root cause of Chrome's dropped scroll frame
+
+`slow_frames` in the bench log showed the same frame every run: frame 98,
+with a 20–33 ms CPU frame build, which is the frame where row 67 scrolls
+into view. That row is the fixture's only CJK title ("ONE PUNCH-MAN
+ワンパンマン 第37巻"). `gpui_web` draws CJK and emoji through Canvas 2D using
+the browser's fonts. The first `measureText` for each script makes Chrome
+resolve a system fallback font synchronously. `cjkprobe.mjs` measured 5–6 ms
+for the first katakana, 7 ms for the first Han character, 2 ms for Hangul,
+7–9 ms for the first bold CJK, and 5–7 ms for emoji. Later calls take
+0.1–0.2 ms. The client now shapes titles that need browser fonts, regular
+and bold, 50 ms after the results frame, so the lookups are cached before
+those rows are drawn. Firefox did not show this frame on 2026-09-25 (its
+scroll max was 20 ms).
+
+### Tried, didn't help, or rejected
+
+- **wasm-opt levels** (binaryen v123 on the same wasm-bindgen output). Os:
+  2,032,610 B brotli. Oz: 2,036,101. O3: 2,031,777. Oz `--converge`:
+  2,031,244, but it takes 48 s instead of 20 s. None is worth it. Trunk uses
+  `-Oz` to go with opt-level z. **Rejected:** `-tnh` (traps-never-happen)
+  saved 0.1 % and changes semantics if a trap does happen.
+- **Removing the SVG and regex stacks.** usvg/resvg/rustybuzz/ttf-parser/
+  roxmltree/fontdb come to about 700 KB, and regex/aho-corasick
+  (`svg_renderer`'s emoji regex) to about 420 KB. Both are hard dependencies
+  of `gpui`, kept alive through `SvgRenderer::new`. Removing them needs a
+  gpui fork, so this was rejected. The same applies to `image` (all formats,
+  enabled by the Zed workspace) and naga (723 KB, needed to translate WGSL
+  for WebGL2).
+- **Dropping Cyrillic/Greek from the Regular font:** rejected, because
+  indexer titles are often Russian. Only SemiBold was subset (see
+  trade-offs).
+- **On-the-fly compression** (tower-http `CompressionLayer`): rejected in
+  favour of precompressed files. That means brotli-11 with no per-request
+  CPU, and the server keeps working without the files.
+- **A smaller allocator:** not tried. The whole wasm linear memory is 9 MiB
+  after the bench script, so an allocator can save at most a few MB. The
+  renderer's ~160 MB private is mostly Chrome itself (compiled wasm code, GL
+  client, V8). The 12 MB drop in renderer private is probably the smaller
+  module's compiled code (not verified).
+- **Atlases and buffers:** checked, not oversized. Atlas textures start at
+  1024², and the instance buffer starts at 2 MB and grows on demand.
+- **`instantiateStreaming` and preload:** already in place. Trunk's loader
+  passes the wasm URL to wasm-bindgen's `init`, which streams, and the page
+  has `modulepreload` for the js and `preload` for the wasm.
+- **Native:** fat LTO, `codegen-units = 1` and `panic = "abort"` are not free
+  (longer builds, and abort changes panic behaviour), so they were not
+  applied. Only the log level carries over.
+
+### Trade-offs
+
+- **Panics:** the wasm build uses `panic=immediate-abort`, so a Rust panic
+  traps with "unreachable" and no message. `console_error_panic_hook` output
+  is gone. For a debuggable bundle, use plain `trunk build --release`, which
+  keeps std panics with messages. Its size was not measured on the final
+  source. The earlier opt-level-z-only variant was 6.46 MB.
+- **Bold Cyrillic/Greek:** the SemiBold subset has no Cyrillic or Greek, so
+  those runs in bold text fall back to the Regular face. This was checked
+  with a fixture that has Russian and Greek titles, in an expanded
+  (bold) row (`opt/bold-cyrillic-fallback.png`). Latin parts are bold,
+  Cyrillic parts are regular weight, and nothing renders as tofu. It only
+  affects the expanded row's title and bold labels.
+- **Glyph names** are stripped from the fonts. That is invisible, because
+  GPUI uses glyph IDs.
+- **Debug/trace logs** from wgpu, naga and GPUI are compiled out of release
+  builds, native included. Info and above remain.
+- The CJK warm-up costs one-off idle time after results arrive (about 5–9 ms
+  per script, only when a title needs browser fonts).
+
+### Parity after the changes
+
+`parity.mjs` (Chrome WebGL2) gave the same results as before: typing and
+edit keys, non-ASCII, IME composition and commit (ワンパンマン), emoji,
+copy/cut/paste, drag-select, Tab and Shift-Tab, tooltip, the Filter and Sort
+popovers (shadows drawn, so lazily created pipelines work), Grab and Grab
+selected (3 POSTs with categories 5000/5040/5000), wheel scrolling and
+clipping, and resize. The known gap (double-click word select) is also
+unchanged. `ffbench.mjs MODE=parity` (Firefox WebGL2): typing, Home/End/
+Backspace, non-ASCII, copy/paste, Tab, tooltip, wheel and the Filter popover
+all passed. On the final build the WebGL2 console has only two warnings,
+"WebGPU initialization failed; falling back to WebGL2" (http origin) and
+"Dual-source blending not available". The poll warning is gone.
+
+### Caveats (optimization)
+
+- **Frame pacing on HYTE changed between the two sessions**, for both the old
+  and the new bundle. Chrome's mean interval is 17.6–17.7 ms (16.6 on
+  2026-09-25). Firefox mostly presents every other vsync (p50 29–31 ms). The
+  CPU frame build is still ~2 ms. The cause is probably outside anorak
+  (possibly the driver work on HYTE) and was not investigated. Firefox's
+  scroll row is therefore not a before/after result.
+- Chrome and Firefox on plain http get gzip, not brotli, so the https wire
+  size is from curl.
+- WebGPU's wasm start → first frame (Chrome ~90 ms cold and warm, Firefox
+  ~300 cold / ~220 warm) did not change. Lazy pipelines don't help there, and
+  it was not profiled.
+- Raw results and scripts: `docs/gpui-bench/opt/`.

@@ -28,7 +28,15 @@ rustup target add wasm32-unknown-unknown --toolchain nightly
 cargo install trunk            # 0.21.x; it fetches wasm-bindgen and wasm-opt
 cd anorak-gpui
 trunk build --release          # -> dist/ (index.html, .js, _bg.wasm)
+# or, smallest bundle (build-std + panic=immediate-abort), then .br/.gz:
+sh build-web.sh                # Windows: .\build-web.ps1, then precompress.sh on the server host
 ```
+
+`precompress.sh [dist]` writes `FILE.br` (brotli -q 11) and `FILE.gz` next
+to each file. The server then sends those with `Content-Encoding` to
+browsers that accept them. Without them it serves the plain files. The
+full build is 5.6 MB of wasm, 2.26 MB gzip and 1.69 MB brotli. Browsers only
+ask for brotli over https.
 
 The Anorak server serves `anorak-gpui/dist` at `/gpui/` (override the
 directory with `ANORAK_GPUI_DIST`), so the page calls `/api/query` and
@@ -44,14 +52,20 @@ directory with `ANORAK_GPUI_DIST`), so the page calls `/api/query` and
 
 The wasm build needs nightly (`gpui_web` enables `parking_lot`'s `nightly`
 feature) and the `getrandom_backend="wasm_js"` cfg from `.cargo/config.toml`.
-Trunk uses the `wasm-release` profile (`opt-level = "s"`, fat LTO, one
-codegen unit, `panic = "abort"`) and runs `wasm-opt -Os`. If you set
+Trunk uses the `wasm-release` profile (`opt-level = "z"`, fat LTO, one
+codegen unit, `panic = "abort"`) and runs `wasm-opt -Oz`. `build-web.sh`
+also rebuilds std for size and uses `-Cpanic=immediate-abort`, so a panic
+traps with no message. For a debuggable bundle, use plain `trunk build`.
+`vendor/gpui_wgpu` is a patched copy of Zed's crate that creates render
+pipelines lazily on wasm, which avoids a ~440 ms WebGL2 startup stall
+(`vendor/gpui_wgpu/PATCHES.md`). Bump it together with the zed rev. If you set
 `RUSTFLAGS` it replaces the config's rustflags, so include
 `--cfg getrandom_backend="wasm_js"` yourself.
 
 The browser platform has no system fonts, so the wasm embeds IBM Plex Sans
-Regular and SemiBold (`assets/fonts`, SIL OFL 1.1; about 400 KB raw, about
-146 KB of the brotli size). CJK graphemes the font lacks (some titles) are
+Regular and SemiBold (`assets/fonts`, SIL OFL 1.1, subset to 289 KB raw,
+106 KB brotli; SemiBold has no Cyrillic/Greek, which fall back to Regular,
+see `assets/fonts/ibm-plex-sans/README.md`). CJK graphemes the font lacks (some titles) are
 drawn by gpui_web's canvas fallback with the browser's fonts.
 
 The server URL comes from `--server URL`, then `$ANORAK_SERVER`, and falls back

@@ -1,0 +1,7 @@
+# binaryen v123 wasm-opt on the same wasm-bindgen output (pre-optimization source, e06f127), bytes
+# level          raw        brotli-11   wall time
+Os (then used)   7295780    2032610     20.5 s
+Oz               7204089    2036101     22 s
+O3               7310236    2031777     -
+Oz --converge    7194833    2031244     48 s
+Os -tnh          7287879    2029871     -   (rejected: traps-never-happen changes semantics)

@@ -1,0 +1,26 @@
+# 2026-09-26 ~00:52 MDT. HYTE trunk 0.21.14 builds via bv.ps1 (clean env, strip=true), wasm-opt -Oz (index.html data-wasm-opt="z")
+# combo = vendored gpui_wgpu (lazy pipelines) + log release_max_level_info + subset fonts + build-std std,panic_abort + optimize_for_size + -Cpanic=immediate-abort
+combo-z build_s=162.0 (2 builds in parallel -> not a valid timing) raw_rustc=7546105 dist_wasm=5566379 dist_js=162462
+combo-s build_s=181.8 (parallel) raw_rustc=8317184 dist_wasm=6310596 dist_js=159487
+# precompress.sh (brotli -q11, gzip -9 -n) on witherow:
+combo-z wasm br=1690031 gz=2256882 ; js br=19470 gz=23326 ; html br=547 gz=749
+combo-s wasm br=1819647 gz=2501902 ; js br=19158 gz=22953 ; html br=548 gz=751
+# bytes actually sent (curl, Accept-Encoding: gzip, deflate, br, zstd) wire.sh:
+base index.html sent=1286 enc=none
+base anorak-gpui-e06f12794fa72ec_bg.wasm sent=7295780 enc=none
+base anorak-gpui-e06f12794fa72ec.js sent=160411 enc=none
+base total_sent=7457477
+combo-z index.html sent=547 enc=br
+combo-z anorak-gpui-ccb7bbe7005153f3_bg.wasm sent=1690031 enc=br
+combo-z anorak-gpui-ccb7bbe7005153f3.js sent=19470 enc=br
+combo-z total_sent=1710048
+combo-s index.html sent=548 enc=br
+combo-s anorak-gpui-6f1d9e85e2557c9a_bg.wasm sent=1819647 enc=br
+combo-s anorak-gpui-6f1d9e85e2557c9a.js sent=19158 enc=br
+combo-s total_sent=1839353
+# final build fa62dd9 (build-web.ps1, dist-final), served on :8889 with precompress.sh:
+final wasm 5569294 br 1690207 gz 2257940 ; js 162462 br 19482 gz 23326 ; html 1290 br 551 gz 752
+final total raw 5733046 br 1710240 gz 2282018
+# bytes sent, curl Accept-Encoding: gzip, deflate, br, zstd (wire.sh): final total_sent=1710240 (all br)
+# Chrome 154 over plain http (CDP encodedDataLength): Accept-Encoding has no br on http -> gzip: wasm 2258174, js 23557, html 948
+# native exe (cargo +stable release, fresh target dir): 11845632 B, clean build 98.2 s (Measure-Command; cargo "Finished in 1m 38s")
