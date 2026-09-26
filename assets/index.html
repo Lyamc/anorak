@@ -3,8 +3,17 @@
 
 <head>
     <meta charset="utf-8">
+    <meta name="color-scheme" content="light dark">
     <title>Anorak Search</title>
-    <link rel="stylesheet" href="style.css?v=2">
+    <script>
+        // Apply the saved theme before the stylesheet paints (no light flash).
+        (function () {
+            var t = null;
+            try { t = localStorage.getItem('anorak-theme'); } catch (e) {}
+            document.documentElement.setAttribute('data-theme', t === 'light' || t === 'dark' ? t : 'system');
+        })();
+    </script>
+    <link rel="stylesheet" href="style.css?v=3">
     <script src="https://unpkg.com/htmx.org@1.9.4/dist/htmx.min.js"></script>
     <script src="https://kit.fontawesome.com/48f6fc2f0a.js" crossorigin="anonymous" async></script>
 </head>
@@ -82,11 +91,52 @@
                     <button type="button" id="clearSort" class="toolbar-btn" title="Reset sort to most seeds">Clear sort</button>
                 </div>
             </div>
+
+            <button type="button" class="dropdown-toggle theme-toggle" id="themeToggle" title="Theme: Auto (follows system)" aria-label="Theme: Auto (follows system)">
+                <span class="theme-icon" id="themeIcon" aria-hidden="true"><span class="fa-solid fa-circle-half-stroke"></span></span>
+                <span id="themeLabel">Auto</span>
+            </button>
         </div>
         <div id="mainContent"></div>
     </div>
 
     <script>
+        // Theme toggle: Auto (follow OS) -> Light -> Dark -> Auto.
+        (() => {
+            const root = document.documentElement;
+            const btn = document.getElementById('themeToggle');
+            const icon = document.getElementById('themeIcon');
+            const label = document.getElementById('themeLabel');
+            if (!btn) return;
+            const order = ['system', 'light', 'dark'];
+            const names = { system: 'Auto', light: 'Light', dark: 'Dark' };
+            const icons = { system: 'fa-circle-half-stroke', light: 'fa-sun', dark: 'fa-moon' };
+            const current = () => {
+                const t = root.getAttribute('data-theme');
+                return order.includes(t) ? t : 'system';
+            };
+            const render = () => {
+                const t = current();
+                const next = order[(order.indexOf(t) + 1) % order.length];
+                label.textContent = names[t];
+                // Replace the element so the Font Awesome kit re-renders it.
+                icon.innerHTML = `<span class="fa-solid ${icons[t]}"></span>`;
+                const desc = `Theme: ${names[t]}${t === 'system' ? ' (follows system)' : ''}. Click for ${names[next]}.`;
+                btn.title = desc;
+                btn.setAttribute('aria-label', desc);
+            };
+            btn.addEventListener('click', () => {
+                const next = order[(order.indexOf(current()) + 1) % order.length];
+                root.setAttribute('data-theme', next);
+                try {
+                    if (next === 'system') localStorage.removeItem('anorak-theme');
+                    else localStorage.setItem('anorak-theme', next);
+                } catch (e) {}
+                render();
+            });
+            render();
+        })();
+
         (() => {
             const main = document.querySelector('#mainContent');
             if (!main) return;
