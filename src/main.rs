@@ -40,8 +40,17 @@ pub async fn main() {
         .route("/send-to-rqbit/", post(routes::send_to_rqbit::endpoint))
         // Optional GPUI WebAssembly client (anorak-gpui/, `trunk build --release`),
         // served same-origin so it can call /api/query and /send-to-rqbit/
-        // without CORS. ServeDir sends `.wasm` as application/wasm.
-        .nest_service("/gpui", from_fn(gpui_cache).layer(ServeDir::new(gpui_dist())))
+        // without CORS. ServeDir sends `.wasm` as application/wasm, and serves
+        // FILE.br / FILE.gz from anorak-gpui/precompress.sh when present
+        // (7.3 MB of wasm is about 2 MB with brotli).
+        .nest_service(
+            "/gpui",
+            from_fn(gpui_cache).layer(
+                ServeDir::new(gpui_dist())
+                    .precompressed_br()
+                    .precompressed_gzip(),
+            ),
+        )
         .nest_service("/", ServeDir::new("assets"))
         .layer(map_request(strip_conditional_headers))
         .layer(map_response(no_stale_cache));
@@ -73,6 +82,10 @@ async fn gpui_cache(req: Request, next: Next) -> Response {
             HeaderValue::from_static("public, max-age=31536000, immutable"),
         );
     }
+    // The body depends on Accept-Encoding once precompressed files exist.
+    res.headers_mut()
+        .entry(header::VARY)
+        .or_insert(HeaderValue::from_static("accept-encoding"));
     res
 }
 
