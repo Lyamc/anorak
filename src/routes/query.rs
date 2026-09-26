@@ -22,18 +22,9 @@ pub async fn endpoint(Form(payload): Form<models::Query>) -> Result<impl IntoRes
 }
 
 async fn gather_items_json(search_query: &str) -> Result<Value> {
-    let contents = query_jackett(search_query).await?;
-    let mut items: Vec<models::Item> = process_xml(&contents).unwrap_or_default();
-    let known_torrents = request_rqbit_known_torrents().await;
-
-    // Default sort: highest seeders first, then peers.
-    items.sort_by(|a, b| {
-        b.seeders
-            .cmp(&a.seeders)
-            .then_with(|| b.peers.cmp(&a.peers))
-    });
-
-    let contexts: Value = items
+    let gathered = gather_items(search_query).await?;
+    let contexts: Value = gathered
+        .items
         .iter()
         .map(|it| {
             let magnet = it.magnet_link();
@@ -41,7 +32,7 @@ async fn gather_items_json(search_query: &str) -> Result<Value> {
                 .map(|c| c.to_string())
                 .unwrap_or_default();
             context! {
-                already_added => known_torrents.iter().any(|t| t.contains(&it.title)),
+                already_added => gathered.is_known(it),
                 title => it.title,
                 guid => it.guid,
                 magnet => magnet,
@@ -57,6 +48,38 @@ async fn gather_items_json(search_query: &str) -> Result<Value> {
         .collect::<Vec<_>>()
         .into();
     Ok(contexts)
+}
+
+/// Torznab items for a search, in the default order (seeders desc, then
+/// peers desc), plus the names rqbit already knows about. Shared by the HTML
+/// fragment (`POST /query/`) and the JSON API (`/api/query`).
+pub(crate) struct Gathered {
+    pub items: Vec<models::Item>,
+    pub known_torrents: Vec<String>,
+}
+
+impl Gathered {
+    pub fn is_known(&self, item: &models::Item) -> bool {
+        self.known_torrents.iter().any(|t| t.contains(&item.title))
+    }
+}
+
+pub(crate) async fn gather_items(search_query: &str) -> Result<Gathered> {
+    let contents = query_jackett(search_query).await?;
+    let mut items: Vec<models::Item> = process_xml(&contents).unwrap_or_default();
+    let known_torrents = request_rqbit_known_torrents().await;
+
+    // Default sort: highest seeders first, then peers.
+    items.sort_by(|a, b| {
+        b.seeders
+            .cmp(&a.seeders)
+            .then_with(|| b.peers.cmp(&a.peers))
+    });
+
+    Ok(Gathered {
+        items,
+        known_torrents,
+    })
 }
 
 async fn request_rqbit_known_torrents() -> Vec<String> {
