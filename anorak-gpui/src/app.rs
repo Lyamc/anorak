@@ -550,8 +550,17 @@ impl AnorakApp {
                     .windows(2)
                     .map(|w| bench::ms((w[1] - w[0]).as_secs_f64()))
                     .collect();
+                // Frames that missed a vsync (> 25 ms since the previous paint), with
+                // the CPU build time of that frame, to tell CPU stalls from GPU/compositor ones.
+                let slow: Vec<serde_json::Value> = intervals
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, ms)| **ms > 25.0)
+                    .map(|(i, ms)| serde_json::json!({"frame": i + 1, "interval_ms": ms, "build_ms": run.build_ms.get(i + 1)}))
+                    .collect();
                 b.log(serde_json::json!({
                     "event": "scroll",
+                    "slow_frames": slow,
                     "frames": run.paints.len(),
                     "frame_interval_ms": bench::stats(intervals),
                     "frame_build_ms": bench::stats(run.build_ms.clone()),
