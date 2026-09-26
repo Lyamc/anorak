@@ -162,6 +162,7 @@ dependencies = [
  "gpui_web",
  "http_client",
  "js-sys",
+ "log",
  "serde",
  "serde_json",
  "unicode-segmentation",
