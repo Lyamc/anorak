@@ -5,6 +5,10 @@ mod utils;
 
 mod app_error;
 use axum::{
+    extract::Request,
+    http::{header, HeaderValue},
+    middleware::{map_request, map_response},
+    response::Response,
     routing::post,
     Router,
 };
@@ -29,11 +33,30 @@ pub async fn main() {
     let app = Router::new()
         .route("/query/", post(routes::query::endpoint))
         .route("/send-to-rqbit/", post(routes::send_to_rqbit::endpoint))
-        .nest_service("/", ServeDir::new("assets"));
+        .nest_service("/", ServeDir::new("assets"))
+        .layer(map_request(strip_conditional_headers))
+        .layer(map_response(no_stale_cache));
 
     let listener = tokio::net::TcpListener::bind(format!("0.0.0.0:{}", CONFIG.port))
         .await
         .unwrap();
     info!("Anorak running on http://localhost:{}", CONFIG.port);
     axum::serve(listener, app).await.unwrap();
+}
+
+// Assets are served from the Nix store, where every file's mtime is the epoch.
+// ServeDir then sends `Last-Modified: 1970`, so browsers cache heuristically
+// for years and answer every revalidation with 304 -> old HTML/CSS after a
+// deploy. Drop the useless validator and ask clients to refetch.
+async fn strip_conditional_headers(mut req: Request) -> Request {
+    req.headers_mut().remove(header::IF_MODIFIED_SINCE);
+    req.headers_mut().remove(header::IF_UNMODIFIED_SINCE);
+    req
+}
+
+async fn no_stale_cache(mut res: Response) -> Response {
+    let headers = res.headers_mut();
+    headers.remove(header::LAST_MODIFIED);
+    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    res
 }
