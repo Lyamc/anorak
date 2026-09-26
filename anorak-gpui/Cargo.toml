@@ -1,0 +1,23 @@
+[package]
+name = "anorak-gpui"
+version = "0.1.0"
+edition = "2024"
+description = "Native GPUI desktop client for the Anorak search server"
+license = "GPL-3.0-or-later"
+publish = false
+
+# Standalone workspace: keeps GPUI's large dependency tree out of the server's
+# Cargo.lock (which nix/package.nix uses to build the deployed server).
+[workspace]
+
+[dependencies]
+gpui = "=0.2.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "3", default-features = false }
+unicode-segmentation = "1"
+
+[profile.release]
+strip = true
+lto = "thin"
+codegen-units = 16
