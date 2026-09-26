@@ -7,7 +7,7 @@ mod app_error;
 use axum::{
     extract::Request,
     http::{header, HeaderValue},
-    middleware::{map_request, map_response},
+    middleware::{from_fn, map_request, map_response, Next},
     response::Response,
     routing::{get, post},
     Router,
@@ -16,6 +16,7 @@ use log::info;
 use minijinja::{path_loader, Environment};
 use once_cell::sync::Lazy;
 use pretty_env_logger;
+use tower::Layer;
 use tower_http::services::ServeDir;
 
 use crate::config::CONFIG;
@@ -40,7 +41,7 @@ pub async fn main() {
         // Optional GPUI WebAssembly client (anorak-gpui/, `trunk build --release`),
         // served same-origin so it can call /api/query and /send-to-rqbit/
         // without CORS. ServeDir sends `.wasm` as application/wasm.
-        .nest_service("/gpui", ServeDir::new(gpui_dist()))
+        .nest_service("/gpui", from_fn(gpui_cache).layer(ServeDir::new(gpui_dist())))
         .nest_service("/", ServeDir::new("assets"))
         .layer(map_request(strip_conditional_headers))
         .layer(map_response(no_stale_cache));
@@ -58,6 +59,23 @@ fn gpui_dist() -> String {
     std::env::var("ANORAK_GPUI_DIST").unwrap_or_else(|_| "anorak-gpui/dist".to_string())
 }
 
+/// Trunk puts a content hash in the .js/.wasm file names (index.html points at
+/// the current pair), so those can be cached for good; index.html itself keeps
+/// the global `no-cache`. Without this every visit re-downloads the whole wasm:
+/// `no_stale_cache` also strips the validators a revalidation would need.
+async fn gpui_cache(req: Request, next: Next) -> Response {
+    let path = req.uri().path();
+    let hashed = path.ends_with(".wasm") || path.ends_with(".js");
+    let mut res = next.run(req).await;
+    if hashed && res.status().is_success() {
+        res.headers_mut().insert(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static("public, max-age=31536000, immutable"),
+        );
+    }
+    res
+}
+
 // Assets are served from the Nix store, where every file's mtime is the epoch.
 // ServeDir then sends `Last-Modified: 1970`, so browsers cache heuristically
 // for years and answer every revalidation with 304 -> old HTML/CSS after a
@@ -71,6 +89,9 @@ async fn strip_conditional_headers(mut req: Request) -> Request {
 async fn no_stale_cache(mut res: Response) -> Response {
     let headers = res.headers_mut();
     headers.remove(header::LAST_MODIFIED);
-    headers.insert(header::CACHE_CONTROL, HeaderValue::from_static("no-cache"));
+    // Keep an explicit policy set by an inner layer (see gpui_cache).
+    headers
+        .entry(header::CACHE_CONTROL)
+        .or_insert(HeaderValue::from_static("no-cache"));
     res
 }
