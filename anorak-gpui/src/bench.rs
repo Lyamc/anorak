@@ -45,14 +45,13 @@ impl Bench {
         }
         #[cfg(target_family = "wasm")]
         {
-            use wasm_bindgen::JsValue;
+            use wasm_bindgen::{JsCast, JsValue};
             let line = v.to_string();
             if let Some(w) = web_sys::window() {
                 let key = JsValue::from_str("__anorakBench");
                 let arr = js_sys::Reflect::get(&w, &key)
                     .ok()
-                    .filter(|a| js_sys::Array::is_array(a))
-                    .map(|a| js_sys::Array::from(&a))
+                    .and_then(|a| a.dyn_into::<js_sys::Array>().ok())
                     .unwrap_or_else(|| {
                         let a = js_sys::Array::new();
                         let _ = js_sys::Reflect::set(&w, &key, &a);

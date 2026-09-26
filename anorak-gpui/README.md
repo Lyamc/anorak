@@ -1,15 +1,19 @@
 # anorak-gpui
 
-Native desktop front-end for the Anorak server, built with
-[GPUI](https://gpui.rs) (Zed's GPU-accelerated Rust UI framework). It talks
-to a running Anorak server over HTTP; it does not replace the web UI.
+Front-end for the Anorak server built with [GPUI](https://gpui.rs) (Zed's
+GPU-accelerated Rust UI framework). The same code builds as a native desktop
+app and as WebAssembly for the browser. It talks to a running Anorak server
+over HTTP; it does not replace the web UI.
 
-- GPUI: `gpui = "=0.2.2"` from crates.io (the latest published release;
-  Zed's `main` has since split out `gpui_platform`, which is not on crates.io).
-- Server API used: `GET /api/query?search_term=...` (JSON, added on this
-  branch) and the existing `POST /send-to-rqbit/` (form: `magnet`, `category`).
+- GPUI comes from Zed's git repository pinned to one commit (see
+  `Cargo.toml`), because the web platform (`crates/gpui_web`,
+  zed-industries/zed#50228) and `gpui_platform` are not on crates.io.
+  Native builds use `gpui_platform`; wasm uses `gpui_web` directly, single
+  threaded (no `SharedArrayBuffer`, COOP/COEP headers or `build-std`).
+- Server API used: `GET /api/query?search_term=...` (JSON) and the existing
+  `POST /send-to-rqbit/` (form: `magnet`, `category`).
 
-## Build and run
+## Build and run (native)
 
 ```sh
 cd anorak-gpui
@@ -17,17 +21,51 @@ cargo build --release
 ./target/release/anorak-gpui --server http://192.168.0.101:9341
 ```
 
+## Build and run (browser)
+
+```sh
+rustup target add wasm32-unknown-unknown --toolchain nightly
+cargo install trunk            # 0.21.x; it fetches wasm-bindgen and wasm-opt
+cd anorak-gpui
+trunk build --release          # -> dist/ (index.html, .js, _bg.wasm)
+```
+
+The Anorak server serves `anorak-gpui/dist` at `/gpui/` (override the
+directory with `ANORAK_GPUI_DIST`), so the page calls `/api/query` and
+`/send-to-rqbit/` on its own origin with no CORS. Open
+`http://SERVER:PORT/gpui/`. Query parameters:
+
+- `backend=webgpu` or `backend=webgl` forces a renderer. The default tries
+  WebGPU and falls back to WebGL2. WebGPU needs a secure context (https or
+  localhost), so over plain `http://192.168.0.101:…` browsers get WebGL2.
+- `server=URL` talks to another Anorak server (it then needs CORS).
+- `bench=1` or `selftest=1` (plus `term=`) run the measurement scripts; the
+  JSON lines go to `window.__anorakBench` and the console.
+
+The wasm build needs nightly (`gpui_web` enables `parking_lot`'s `nightly`
+feature) and the `getrandom_backend="wasm_js"` cfg from `.cargo/config.toml`.
+Trunk uses the `wasm-release` profile (`opt-level = "s"`, fat LTO, one
+codegen unit, `panic = "abort"`) and runs `wasm-opt -Os`. If you set
+`RUSTFLAGS` it replaces the config's rustflags, so include
+`--cfg getrandom_backend="wasm_js"` yourself.
+
+The browser platform has no system fonts, so the wasm embeds IBM Plex Sans
+Regular and SemiBold (`assets/fonts`, SIL OFL 1.1; about 400 KB raw, about
+146 KB of the brotli size). CJK graphemes the font lacks (some titles) are
+drawn by gpui_web's canvas fallback with the browser's fonts.
+
 The server URL comes from `--server URL`, then `$ANORAK_SERVER`, and falls back
 to `http://192.168.0.101:9341`. `--size 1280x800` sets the initial window size.
 
 This crate is its own Cargo workspace (it is not a member of the server's).
-That keeps GPUI's dependency tree (712 packages in `Cargo.lock`, about 450
+That keeps GPUI's dependency tree (669 packages in `Cargo.lock`, about 310
 built on Windows) out of the server's
 `Cargo.lock`, which `nix/package.nix` uses to build the deployed server.
 
-`rust-toolchain.toml` pins `stable`. On a Windows host whose rustup default
-host is GNU, build with `cargo +stable-x86_64-pc-windows-msvc build --release`
-because GPUI's DirectX backend expects MSVC. It needs the Windows SDK
+`rust-toolchain.toml` says `nightly` (for the wasm build). Native builds also
+work on stable. On a Windows host whose rustup default host is GNU, build with
+`cargo +stable-x86_64-pc-windows-msvc build --release` because GPUI's
+DirectX backend expects MSVC. It needs the Windows SDK
 (`fxc.exe`) for shader compilation. On Linux it needs Vulkan, Wayland and/or
 X11, and xkbcommon development libraries.
 
@@ -59,5 +97,6 @@ X11, and xkbcommon development libraries.
   the paint of the frame that shows the change.
 - `--selftest LOG` drives the same handlers the UI uses (popovers, filters,
   sort, select-all, grab) and logs state after each step.
+- In the browser the same modes are `?bench=1` and `?selftest=1`.
 
 See `docs/gpui-comparison.md` in the repo root for the results.
