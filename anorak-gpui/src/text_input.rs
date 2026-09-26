@@ -26,6 +26,8 @@ actions!(
         SelectAll,
         Home,
         End,
+        SelectHome,
+        SelectEnd,
         ShowCharacterPalette,
         Paste,
         Cut,
@@ -51,13 +53,26 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("shift-left", SelectLeft, ctx),
         KeyBinding::new("shift-right", SelectRight, ctx),
         KeyBinding::new("secondary-a", SelectAll, ctx),
+        KeyBinding::new("home", Home, ctx),
+        KeyBinding::new("end", End, ctx),
+        KeyBinding::new("shift-home", SelectHome, ctx),
+        KeyBinding::new("shift-end", SelectEnd, ctx),
+        KeyBinding::new("enter", Submit, ctx),
+        KeyBinding::new("ctrl-cmd-space", ShowCharacterPalette, ctx),
+    ]);
+    // In the browser, copy/cut/paste are left unbound on purpose: gpui_web
+    // keeps a hidden <textarea> mirroring the field's text and selection, so
+    // the browser's own Ctrl+C/X/V act on it and paste arrives through the
+    // DOM `paste` event (EntityInputHandler::paste). Binding them would
+    // preventDefault the keystroke, and GPUI's web clipboard write calls
+    // navigator.clipboard, which does not exist on plain-http origins
+    // (the JS exception leaves the app's RefCell borrowed and every later
+    // event fails).
+    #[cfg(not(target_family = "wasm"))]
+    cx.bind_keys([
         KeyBinding::new("secondary-v", Paste, ctx),
         KeyBinding::new("secondary-c", Copy, ctx),
         KeyBinding::new("secondary-x", Cut, ctx),
-        KeyBinding::new("home", Home, ctx),
-        KeyBinding::new("end", End, ctx),
-        KeyBinding::new("enter", Submit, ctx),
-        KeyBinding::new("ctrl-cmd-space", ShowCharacterPalette, ctx),
     ]);
 }
 
@@ -80,7 +95,7 @@ pub struct TextInput {
 impl TextInput {
     pub fn new(placeholder: &str, cx: &mut Context<Self>) -> Self {
         Self {
-            focus_handle: cx.focus_handle(),
+            focus_handle: cx.focus_handle().tab_stop(true),
             numeric: false,
             height: px(32.),
             text_size: px(14.),
@@ -178,6 +193,14 @@ impl TextInput {
 
     fn end(&mut self, _: &End, _: &mut Window, cx: &mut Context<Self>) {
         self.move_to(self.content.len(), cx);
+    }
+
+    fn select_home(&mut self, _: &SelectHome, _: &mut Window, cx: &mut Context<Self>) {
+        self.select_to(0, cx);
+    }
+
+    fn select_end(&mut self, _: &SelectEnd, _: &mut Window, cx: &mut Context<Self>) {
+        self.select_to(self.content.len(), cx);
     }
 
     fn backspace(&mut self, _: &Backspace, window: &mut Window, cx: &mut Context<Self>) {
@@ -686,6 +709,8 @@ impl Render for TextInput {
             .on_action(cx.listener(Self::select_all))
             .on_action(cx.listener(Self::home))
             .on_action(cx.listener(Self::end))
+            .on_action(cx.listener(Self::select_home))
+            .on_action(cx.listener(Self::select_end))
             .on_action(cx.listener(Self::show_character_palette))
             .on_action(cx.listener(Self::paste))
             .on_action(cx.listener(Self::cut))
