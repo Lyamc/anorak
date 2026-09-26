@@ -1,0 +1,782 @@
+[
+ {
+  "run": 0,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgl",
+  "browser": "firefox",
+  "ua": "firefox/147.0.3",
+  "cold": {
+   "first_frame_ms": 785,
+   "wasm_start_to_frame_ms": 510,
+   "dcl_ms": 134,
+   "load_ms": 135,
+   "wasm_response_end_ms": 267,
+   "wasm_transfer": 7296080
+  },
+  "backend": "Gl",
+  "secure": false,
+  "webgpu_api": false,
+  "dpr": 1,
+  "after_results": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 927932416,
+   "total_private": 905846784,
+   "gpu_ws": 114323456,
+   "gpu_private": 283185152,
+   "max_tab_ws": 106008576,
+   "max_tab_private": 77697024,
+   "cpu_ms": 5656.25
+  },
+  "search_to_render_ms": 86,
+  "search_http_ms": 64,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 7,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 11,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 10,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 8,
+    "compute_ms": 1
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 7,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.462,
+    "p50": 17,
+    "p95": 18,
+    "max": 24
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 2.175,
+    "p50": 2,
+    "p95": 3,
+    "max": 11
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790401611316,
+   "since_main_ms": 7125,
+   "perf_now_ms": 7400
+  },
+  "after_script": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 829063168,
+   "total_private": 788033536,
+   "gpu_ws": 116875264,
+   "gpu_private": 284749824,
+   "max_tab_ws": 113999872,
+   "max_tab_private": 82546688,
+   "cpu_ms": 7203.125
+  },
+  "idle_cpu_ms_per_s_total": 69.53125,
+  "warm": {
+   "first_frame_ms": 643,
+   "wasm_start_to_frame_ms": 483,
+   "dcl_ms": 128,
+   "load_ms": 128,
+   "wasm_response_end_ms": 147,
+   "wasm_transfer": 0
+  },
+  "warnings": [
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout",
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout"
+  ]
+ },
+ {
+  "run": 1,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgl",
+  "browser": "firefox",
+  "ua": "firefox/147.0.3",
+  "cold": {
+   "first_frame_ms": 1058,
+   "wasm_start_to_frame_ms": 503,
+   "dcl_ms": 158,
+   "load_ms": 158,
+   "wasm_response_end_ms": 547,
+   "wasm_transfer": 7296080
+  },
+  "backend": "Gl",
+  "secure": false,
+  "webgpu_api": false,
+  "dpr": 1,
+  "after_results": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 896774144,
+   "total_private": 875794432,
+   "gpu_ws": 113872896,
+   "gpu_private": 285126656,
+   "max_tab_ws": 106377216,
+   "max_tab_private": 77864960,
+   "cpu_ms": 5718.75
+  },
+  "search_to_render_ms": 163,
+  "search_http_ms": 140,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 8,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 7,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 9,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 8,
+    "compute_ms": 1
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 13,
+    "compute_ms": 1
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 8,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 8,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.571,
+    "p50": 17,
+    "p95": 18,
+    "max": 19
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 2.817,
+    "p50": 3,
+    "p95": 4,
+    "max": 6
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790401646417,
+   "since_main_ms": 7205,
+   "perf_now_ms": 7760
+  },
+  "after_script": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 836165632,
+   "total_private": 800731136,
+   "gpu_ws": 116273152,
+   "gpu_private": 284381184,
+   "max_tab_ws": 113414144,
+   "max_tab_private": 83369984,
+   "cpu_ms": 8000
+  },
+  "idle_cpu_ms_per_s_total": 102.34375,
+  "warm": {
+   "first_frame_ms": 639,
+   "wasm_start_to_frame_ms": 478,
+   "dcl_ms": 137,
+   "load_ms": 138,
+   "wasm_response_end_ms": 143,
+   "wasm_transfer": 0
+  },
+  "warnings": [
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout",
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout"
+  ]
+ },
+ {
+  "run": 2,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgl",
+  "browser": "firefox",
+  "ua": "firefox/147.0.3",
+  "cold": {
+   "first_frame_ms": 783,
+   "wasm_start_to_frame_ms": 507,
+   "dcl_ms": 133,
+   "load_ms": 133,
+   "wasm_response_end_ms": 268,
+   "wasm_transfer": 7296080
+  },
+  "backend": "Gl",
+  "secure": false,
+  "webgpu_api": false,
+  "dpr": 1,
+  "after_results": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 933867520,
+   "total_private": 914743296,
+   "gpu_ws": 114176000,
+   "gpu_private": 284405760,
+   "max_tab_ws": 106598400,
+   "max_tab_private": 78168064,
+   "cpu_ms": 5421.875
+  },
+  "search_to_render_ms": 83,
+  "search_http_ms": 63,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.521,
+    "p50": 17,
+    "p95": 18,
+    "max": 20
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 2.658,
+    "p50": 3,
+    "p95": 4,
+    "max": 7
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790401681177,
+   "since_main_ms": 7142,
+   "perf_now_ms": 7418
+  },
+  "after_script": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 833937408,
+   "total_private": 795045888,
+   "gpu_ws": 116862976,
+   "gpu_private": 285675520,
+   "max_tab_ws": 117035008,
+   "max_tab_private": 86028288,
+   "cpu_ms": 7062.5
+  },
+  "idle_cpu_ms_per_s_total": 105.46875,
+  "warm": {
+   "first_frame_ms": 598,
+   "wasm_start_to_frame_ms": 473,
+   "dcl_ms": 101,
+   "load_ms": 101,
+   "wasm_response_end_ms": 111,
+   "wasm_transfer": 0
+  },
+  "warnings": [
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout",
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout"
+  ]
+ },
+ {
+  "run": 3,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgl",
+  "browser": "firefox",
+  "ua": "firefox/147.0.3",
+  "cold": {
+   "first_frame_ms": 916,
+   "wasm_start_to_frame_ms": 507,
+   "dcl_ms": 131,
+   "load_ms": 131,
+   "wasm_response_end_ms": 401,
+   "wasm_transfer": 7296080
+  },
+  "backend": "Gl",
+  "secure": false,
+  "webgpu_api": false,
+  "dpr": 1,
+  "after_results": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 949792768,
+   "total_private": 933990400,
+   "gpu_ws": 114839552,
+   "gpu_private": 288751616,
+   "max_tab_ws": 106647552,
+   "max_tab_private": 78012416,
+   "cpu_ms": 5687.5
+  },
+  "search_to_render_ms": 167,
+  "search_http_ms": 142,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 7,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.521,
+    "p50": 17,
+    "p95": 18,
+    "max": 20
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 2.517,
+    "p50": 2,
+    "p95": 4,
+    "max": 5
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790401716399,
+   "since_main_ms": 7203,
+   "perf_now_ms": 7612
+  },
+  "after_script": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 832315392,
+   "total_private": 797814784,
+   "gpu_ws": 117133312,
+   "gpu_private": 289918976,
+   "max_tab_ws": 113651712,
+   "max_tab_private": 82333696,
+   "cpu_ms": 7734.375
+  },
+  "idle_cpu_ms_per_s_total": 53.90625,
+  "warm": {
+   "first_frame_ms": 627,
+   "wasm_start_to_frame_ms": 479,
+   "dcl_ms": 119,
+   "load_ms": 119,
+   "wasm_response_end_ms": 139,
+   "wasm_transfer": 0
+  },
+  "warnings": [
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout",
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout"
+  ]
+ },
+ {
+  "run": 4,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgl",
+  "browser": "firefox",
+  "ua": "firefox/147.0.3",
+  "cold": {
+   "first_frame_ms": 797,
+   "wasm_start_to_frame_ms": 504,
+   "dcl_ms": 123,
+   "load_ms": 123,
+   "wasm_response_end_ms": 283,
+   "wasm_transfer": 7296080
+  },
+  "backend": "Gl",
+  "secure": false,
+  "webgpu_api": false,
+  "dpr": 1,
+  "after_results": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 900222976,
+   "total_private": 951656448,
+   "gpu_ws": 116576256,
+   "gpu_private": 361271296,
+   "max_tab_ws": 106975232,
+   "max_tab_private": 77832192,
+   "cpu_ms": 5906.25
+  },
+  "search_to_render_ms": 83,
+  "search_http_ms": 62,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.563,
+    "p50": 17,
+    "p95": 18,
+    "max": 24
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 2.3,
+    "p50": 2,
+    "p95": 3,
+    "max": 9
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790401751133,
+   "since_main_ms": 7138,
+   "perf_now_ms": 7431
+  },
+  "after_script": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 862330880,
+   "total_private": 897712128,
+   "gpu_ws": 118595584,
+   "gpu_private": 361631744,
+   "max_tab_ws": 118345728,
+   "max_tab_private": 85823488,
+   "cpu_ms": 7218.75
+  },
+  "idle_cpu_ms_per_s_total": 30.46875,
+  "warm": {
+   "first_frame_ms": 585,
+   "wasm_start_to_frame_ms": 478,
+   "dcl_ms": 81,
+   "load_ms": 81,
+   "wasm_response_end_ms": 86,
+   "wasm_transfer": 0
+  },
+  "warnings": [
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout",
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_renderer: Failed to poll device during resize: Timeout"
+  ]
+ }
+]

@@ -1,0 +1,6 @@
+# Final dist (commit 2451b53, trunk hash e06f12794fa72ec), measured on witherow 2026-09-25 ~23:55 MDT with sizes.sh
+anorak-gpui-e06f12794fa72ec_bg.wasm raw=7295780 gzip9=2836522 gzip6=2842514 br11=2032324 br5=2401076 zstd19=2174900
+anorak-gpui-e06f12794fa72ec.js raw=160411 gzip9=23003 gzip6=23898 br11=19252 br5=21852 zstd19=20696
+index.html raw=1286 gzip9=764 gzip6=764 br11=548 br5=636 zstd19=761
+IBMPlexSans-Regular.ttf raw=200500 gzip9=87385 gzip6=87927 br11=70933 br5=80056 zstd19=76962
+IBMPlexSans-SemiBold.ttf raw=202632 gzip9=92441 gzip6=93058 br11=74768 br5=84892 zstd19=81127

@@ -1,0 +1,618 @@
+[
+ {
+  "run": 0,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgpu",
+  "browser": "firefox",
+  "ua": "firefox/147.0.3",
+  "cold": {
+   "first_frame_ms": 707,
+   "wasm_start_to_frame_ms": 242,
+   "dcl_ms": 180,
+   "load_ms": 181,
+   "wasm_response_end_ms": 457,
+   "wasm_transfer": 7296080
+  },
+  "backend": "BrowserWebGpu",
+  "secure": true,
+  "webgpu_api": true,
+  "dpr": 1,
+  "after_results": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 1016795136,
+   "total_private": 993853440,
+   "gpu_ws": 198463488,
+   "gpu_private": 365121536,
+   "max_tab_ws": 104230912,
+   "max_tab_private": 75837440,
+   "cpu_ms": 4546.875
+  },
+  "search_to_render_ms": 151,
+  "search_http_ms": 129,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 7,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.555,
+    "p50": 17,
+    "p95": 18,
+    "max": 20
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 1.983,
+    "p50": 2,
+    "p95": 4,
+    "max": 4
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790401829484,
+   "since_main_ms": 6950,
+   "perf_now_ms": 7415
+  },
+  "after_script": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 899911680,
+   "total_private": 850284544,
+   "gpu_ws": 186798080,
+   "gpu_private": 346931200,
+   "max_tab_ws": 110764032,
+   "max_tab_private": 79003648,
+   "cpu_ms": 5812.5
+  },
+  "idle_cpu_ms_per_s_total": 32.03125,
+  "warm": {
+   "first_frame_ms": 260,
+   "wasm_start_to_frame_ms": 156,
+   "dcl_ms": 79,
+   "load_ms": 79,
+   "wasm_response_end_ms": 83,
+   "wasm_transfer": 0
+  },
+  "warnings": [
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled."
+  ]
+ },
+ {
+  "run": 1,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgpu",
+  "browser": "firefox",
+  "ua": "firefox/147.0.3",
+  "cold": {
+   "first_frame_ms": 602,
+   "wasm_start_to_frame_ms": 230,
+   "dcl_ms": 116,
+   "load_ms": 116,
+   "wasm_response_end_ms": 364,
+   "wasm_transfer": 7296080
+  },
+  "backend": "BrowserWebGpu",
+  "secure": true,
+  "webgpu_api": true,
+  "dpr": 1,
+  "after_results": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 1021579264,
+   "total_private": 994996224,
+   "gpu_ws": 199737344,
+   "gpu_private": 364838912,
+   "max_tab_ws": 105119744,
+   "max_tab_private": 77094912,
+   "cpu_ms": 4578.125
+  },
+  "search_to_render_ms": 87,
+  "search_http_ms": 64,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.479,
+    "p50": 17,
+    "p95": 18,
+    "max": 22
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 2.558,
+    "p50": 3,
+    "p95": 4,
+    "max": 8
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790401863355,
+   "since_main_ms": 6852,
+   "perf_now_ms": 7224
+  },
+  "after_script": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 904794112,
+   "total_private": 856195072,
+   "gpu_ws": 185765888,
+   "gpu_private": 347590656,
+   "max_tab_ws": 116219904,
+   "max_tab_private": 85348352,
+   "cpu_ms": 5875
+  },
+  "idle_cpu_ms_per_s_total": 57.03125,
+  "warm": {
+   "first_frame_ms": 262,
+   "wasm_start_to_frame_ms": 155,
+   "dcl_ms": 83,
+   "load_ms": 83,
+   "wasm_response_end_ms": 90,
+   "wasm_transfer": 0
+  },
+  "warnings": [
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled."
+  ]
+ },
+ {
+  "run": 2,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgpu",
+  "browser": "firefox",
+  "ua": "firefox/147.0.3",
+  "cold": {
+   "first_frame_ms": 545,
+   "wasm_start_to_frame_ms": 246,
+   "dcl_ms": 62,
+   "load_ms": 62,
+   "wasm_response_end_ms": 290,
+   "wasm_transfer": 7296080
+  },
+  "backend": "BrowserWebGpu",
+  "secure": true,
+  "webgpu_api": true,
+  "dpr": 1,
+  "after_results": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 1069645824,
+   "total_private": 1044426752,
+   "gpu_ws": 198864896,
+   "gpu_private": 366448640,
+   "max_tab_ws": 104808448,
+   "max_tab_private": 76533760,
+   "cpu_ms": 4921.875
+  },
+  "search_to_render_ms": 162,
+  "search_http_ms": 139,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.597,
+    "p50": 17,
+    "p95": 18,
+    "max": 21
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 2.425,
+    "p50": 2,
+    "p95": 4,
+    "max": 6
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790401897266,
+   "since_main_ms": 6953,
+   "perf_now_ms": 7252
+  },
+  "after_script": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 913022976,
+   "total_private": 870731776,
+   "gpu_ws": 187179008,
+   "gpu_private": 352964608,
+   "max_tab_ws": 114888704,
+   "max_tab_private": 83374080,
+   "cpu_ms": 6234.375
+  },
+  "idle_cpu_ms_per_s_total": 60.9375,
+  "warm": {
+   "first_frame_ms": 270,
+   "wasm_start_to_frame_ms": 153,
+   "dcl_ms": 90,
+   "load_ms": 91,
+   "wasm_response_end_ms": 101,
+   "wasm_transfer": 0
+  },
+  "warnings": [
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled."
+  ]
+ },
+ {
+  "run": 3,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgpu",
+  "browser": "firefox",
+  "ua": "firefox/147.0.3",
+  "cold": {
+   "first_frame_ms": 494,
+   "wasm_start_to_frame_ms": 236,
+   "dcl_ms": 85,
+   "load_ms": 85,
+   "wasm_response_end_ms": 250,
+   "wasm_transfer": 7296080
+  },
+  "backend": "BrowserWebGpu",
+  "secure": true,
+  "webgpu_api": true,
+  "dpr": 1,
+  "after_results": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 1011970048,
+   "total_private": 990580736,
+   "gpu_ws": 199475200,
+   "gpu_private": 367296512,
+   "max_tab_ws": 104316928,
+   "max_tab_private": 76664832,
+   "cpu_ms": 4953.125
+  },
+  "search_to_render_ms": 85,
+  "search_http_ms": 61,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 5,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 4,
+    "compute_ms": 0
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.597,
+    "p50": 17,
+    "p95": 18,
+    "max": 19
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 2.467,
+    "p50": 2,
+    "p95": 4,
+    "max": 4
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790401930956,
+   "since_main_ms": 6847,
+   "perf_now_ms": 7105
+  },
+  "after_script": {
+   "procs": 11,
+   "types": [
+    "main",
+    "main",
+    "gpu",
+    "socket",
+    "tab",
+    "rdd",
+    "tab",
+    "utility",
+    "tab",
+    "tab",
+    "tab"
+   ],
+   "total_ws": 920440832,
+   "total_private": 873267200,
+   "gpu_ws": 187576320,
+   "gpu_private": 347996160,
+   "max_tab_ws": 115515392,
+   "max_tab_private": 84660224,
+   "cpu_ms": 6578.125
+  },
+  "idle_cpu_ms_per_s_total": 56.25,
+  "warm": {
+   "first_frame_ms": 264,
+   "wasm_start_to_frame_ms": 158,
+   "dcl_ms": 79,
+   "load_ms": 79,
+   "wasm_response_end_ms": 85,
+   "wasm_transfer": 0
+  },
+  "warnings": [
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled.",
+   "[WARN] gpui_wgpu::wgpu_context: Dual-source blending not available on this GPU. Subpixel text antialiasing will be disabled."
+  ]
+ }
+]

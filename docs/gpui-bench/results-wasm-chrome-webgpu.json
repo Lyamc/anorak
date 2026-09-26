@@ -1,0 +1,1032 @@
+[
+ {
+  "run": 0,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgpu",
+  "browser_launch_ms": 282,
+  "cold": {
+   "first_frame_ms": 509.9000000000233,
+   "wasm_start_to_frame_ms": 108.9,
+   "dcl_ms": 84.90000000002328,
+   "load_ms": 85,
+   "wasm_response_end_ms": 388.70000000001164
+  },
+  "backend": "BrowserWebGpu",
+  "secure": true,
+  "webgpu_api": true,
+  "dpr": 1,
+  "page_load": {
+   "requests": 5,
+   "wire_bytes": 7520575,
+   "decoded_bytes": 7519763,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 160596,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": false,
+     "wire": 7287721,
+     "decoded": 7287534
+    },
+    {
+     "url": "/favicon.ico",
+     "status": 200,
+     "cache": false,
+     "wire": 15560,
+     "decoded": 15406
+    },
+    {
+     "url": "/api/query",
+     "status": 200,
+     "cache": false,
+     "wire": 55258,
+     "decoded": 55122
+    }
+   ]
+  },
+  "after_results": {
+   "renderer_ws": 251731968,
+   "renderer_private": 142299136,
+   "renderer_peak_ws": 293609472,
+   "gpu_ws": 165474304,
+   "gpu_private": 203231232,
+   "total_ws": 625364992,
+   "total_private": 415244288,
+   "procs": 8,
+   "cpu_ms": 3093.75
+  },
+  "search_to_render_ms": 71.5,
+  "search_http_ms": 56.7,
+  "search_parse_ms": 0.6,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 4.5,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.6,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.1,
+    "compute_ms": 0.1,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.2,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 11.9,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.2,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6,
+    "compute_ms": 0,
+    "rows": 100
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.523,
+    "p50": 16.7,
+    "p95": 17.6,
+    "max": 38.6
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 1.591,
+    "p50": 1.3,
+    "p95": 2.1,
+    "max": 23.5
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790400699690,
+   "since_main_ms": 6201.4,
+   "perf_now_ms": 6602.300000000047
+  },
+  "after_script": {
+   "renderer_ws": 263331840,
+   "renderer_private": 148492288,
+   "renderer_peak_ws": 293650432,
+   "gpu_ws": 167510016,
+   "gpu_private": 197201920,
+   "total_ws": 639631360,
+   "total_private": 415625216,
+   "procs": 8,
+   "cpu_ms": 3625
+  },
+  "idle_cpu_ms_per_s_total": 12.5,
+  "idle_cpu_ms_per_s_renderer": 8.59375,
+  "idle_cpu_ms_per_s_gpu": 1.5625,
+  "warm": {
+   "first_frame_ms": 196,
+   "wasm_start_to_frame_ms": 148.9,
+   "dcl_ms": 10.900000000023283,
+   "load_ms": 11.100000000034925,
+   "wasm_response_end_ms": 22.79999999998836
+  },
+  "warm_load": {
+   "requests": 3,
+   "wire_bytes": 1440,
+   "decoded_bytes": 7449235,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 0,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": true,
+     "wire": 0,
+     "decoded": 7287534
+    }
+   ]
+  }
+ },
+ {
+  "run": 1,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgpu",
+  "browser_launch_ms": 232,
+  "cold": {
+   "first_frame_ms": 715.1000000000349,
+   "wasm_start_to_frame_ms": 115.9,
+   "dcl_ms": 118.90000000002328,
+   "load_ms": 119,
+   "wasm_response_end_ms": 584.6000000000349
+  },
+  "backend": "BrowserWebGpu",
+  "secure": true,
+  "webgpu_api": true,
+  "dpr": 1,
+  "page_load": {
+   "requests": 5,
+   "wire_bytes": 7520575,
+   "decoded_bytes": 7519763,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 160596,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": false,
+     "wire": 7287721,
+     "decoded": 7287534
+    },
+    {
+     "url": "/favicon.ico",
+     "status": 200,
+     "cache": false,
+     "wire": 15560,
+     "decoded": 15406
+    },
+    {
+     "url": "/api/query",
+     "status": 200,
+     "cache": false,
+     "wire": 55258,
+     "decoded": 55122
+    }
+   ]
+  },
+  "after_results": {
+   "renderer_ws": 258519040,
+   "renderer_private": 150605824,
+   "renderer_peak_ws": 297472000,
+   "gpu_ws": 160956416,
+   "gpu_private": 198598656,
+   "total_ws": 627470336,
+   "total_private": 419254272,
+   "procs": 8,
+   "cpu_ms": 4031.25
+  },
+  "search_to_render_ms": 83.1,
+  "search_http_ms": 62.7,
+  "search_parse_ms": 1.6,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 12.7,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.6,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0.1,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.6,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.2,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 5.3,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.2,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.1,
+    "compute_ms": 0,
+    "rows": 100
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.582,
+    "p50": 16.7,
+    "p95": 17,
+    "max": 34.7
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 1.328,
+    "p50": 1.2,
+    "p95": 1.4,
+    "max": 19.9
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790400752549,
+   "since_main_ms": 6234.4,
+   "perf_now_ms": 6833.400000000023
+  },
+  "after_script": {
+   "renderer_ws": 266891264,
+   "renderer_private": 153075712,
+   "renderer_peak_ws": 297512960,
+   "gpu_ws": 165679104,
+   "gpu_private": 201273344,
+   "total_ws": 641064960,
+   "total_private": 424685568,
+   "procs": 8,
+   "cpu_ms": 4546.875
+  },
+  "idle_cpu_ms_per_s_total": 18.75,
+  "idle_cpu_ms_per_s_renderer": 12.5,
+  "idle_cpu_ms_per_s_gpu": 0.78125,
+  "warm": {
+   "first_frame_ms": 177,
+   "wasm_start_to_frame_ms": 92.2,
+   "dcl_ms": 61.70000000001164,
+   "load_ms": 61.90000000002328,
+   "wasm_response_end_ms": 68.20000000001164
+  },
+  "warm_load": {
+   "requests": 3,
+   "wire_bytes": 1440,
+   "decoded_bytes": 7449235,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 0,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": true,
+     "wire": 0,
+     "decoded": 7287534
+    }
+   ]
+  }
+ },
+ {
+  "run": 2,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgpu",
+  "browser_launch_ms": 194,
+  "cold": {
+   "first_frame_ms": 404.5999999999767,
+   "wasm_start_to_frame_ms": 98.4,
+   "dcl_ms": 42.29999999998836,
+   "load_ms": 42.399999999965075,
+   "wasm_response_end_ms": 292.29999999998836
+  },
+  "backend": "BrowserWebGpu",
+  "secure": true,
+  "webgpu_api": true,
+  "dpr": 1,
+  "page_load": {
+   "requests": 5,
+   "wire_bytes": 7520575,
+   "decoded_bytes": 7519763,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 160596,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": false,
+     "wire": 7287721,
+     "decoded": 7287534
+    },
+    {
+     "url": "/favicon.ico",
+     "status": 200,
+     "cache": false,
+     "wire": 15560,
+     "decoded": 15406
+    },
+    {
+     "url": "/api/query",
+     "status": 200,
+     "cache": false,
+     "wire": 55258,
+     "decoded": 55122
+    }
+   ]
+  },
+  "after_results": {
+   "renderer_ws": 253538304,
+   "renderer_private": 145297408,
+   "renderer_peak_ws": 294825984,
+   "gpu_ws": 158760960,
+   "gpu_private": 190382080,
+   "total_ws": 620912640,
+   "total_private": 405479424,
+   "procs": 8,
+   "cpu_ms": 3515.625
+  },
+  "search_to_render_ms": 98.6,
+  "search_http_ms": 64.3,
+  "search_parse_ms": 0.5,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 6.9,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.9,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 5.6,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.6,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.2,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.3,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 4.4,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.3,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0,
+    "rows": 100
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.529,
+    "p50": 16.7,
+    "p95": 18,
+    "max": 35.6
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 2.103,
+    "p50": 1.7,
+    "p95": 3.4,
+    "max": 21.9
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790400787624,
+   "since_main_ms": 6231.5,
+   "perf_now_ms": 6537.5
+  },
+  "after_script": {
+   "renderer_ws": 262356992,
+   "renderer_private": 148176896,
+   "renderer_peak_ws": 294871040,
+   "gpu_ws": 161009664,
+   "gpu_private": 196550656,
+   "total_ws": 633249792,
+   "total_private": 415199232,
+   "procs": 8,
+   "cpu_ms": 4437.5
+  },
+  "idle_cpu_ms_per_s_total": 15.625,
+  "idle_cpu_ms_per_s_renderer": 3.90625,
+  "idle_cpu_ms_per_s_gpu": 3.125,
+  "warm": {
+   "first_frame_ms": 180,
+   "wasm_start_to_frame_ms": 88.9,
+   "dcl_ms": 67.79999999993015,
+   "load_ms": 68,
+   "wasm_response_end_ms": 74.39999999990687
+  },
+  "warm_load": {
+   "requests": 3,
+   "wire_bytes": 1440,
+   "decoded_bytes": 7449235,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 0,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": true,
+     "wire": 0,
+     "decoded": 7287534
+    }
+   ]
+  }
+ },
+ {
+  "run": 3,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgpu",
+  "browser_launch_ms": 185,
+  "cold": {
+   "first_frame_ms": 489.5999999999767,
+   "wasm_start_to_frame_ms": 99.2,
+   "dcl_ms": 118,
+   "load_ms": 118.09999999997672,
+   "wasm_response_end_ms": 376.5999999999767
+  },
+  "backend": "BrowserWebGpu",
+  "secure": true,
+  "webgpu_api": true,
+  "dpr": 1,
+  "page_load": {
+   "requests": 5,
+   "wire_bytes": 7520575,
+   "decoded_bytes": 7519763,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 160596,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": false,
+     "wire": 7287721,
+     "decoded": 7287534
+    },
+    {
+     "url": "/favicon.ico",
+     "status": 200,
+     "cache": false,
+     "wire": 15560,
+     "decoded": 15406
+    },
+    {
+     "url": "/api/query",
+     "status": 200,
+     "cache": false,
+     "wire": 55258,
+     "decoded": 55122
+    }
+   ]
+  },
+  "after_results": {
+   "renderer_ws": 256974848,
+   "renderer_private": 149934080,
+   "renderer_peak_ws": 295297024,
+   "gpu_ws": 163942400,
+   "gpu_private": 202092544,
+   "total_ws": 628871168,
+   "total_private": 421318656,
+   "procs": 8,
+   "cpu_ms": 2906.25
+  },
+  "search_to_render_ms": 74.3,
+  "search_http_ms": 61.7,
+  "search_parse_ms": 0.3,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3.9,
+    "compute_ms": 0.2,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 3.5,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.2,
+    "compute_ms": 0.1,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.3,
+    "compute_ms": 0.1,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 14.8,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 7.2,
+    "compute_ms": 0.1,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.5,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2,
+    "compute_ms": 0,
+    "rows": 100
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.598,
+    "p50": 16.7,
+    "p95": 16.9,
+    "max": 35
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 1.255,
+    "p50": 1.1,
+    "p95": 1.3,
+    "max": 19.4
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790400822495,
+   "since_main_ms": 6190.8,
+   "perf_now_ms": 6580.900000000023
+  },
+  "after_script": {
+   "renderer_ws": 264536064,
+   "renderer_private": 151511040,
+   "renderer_peak_ws": 295342080,
+   "gpu_ws": 164995072,
+   "gpu_private": 202473472,
+   "total_ws": 638001152,
+   "total_private": 423587840,
+   "procs": 8,
+   "cpu_ms": 3906.25
+  },
+  "idle_cpu_ms_per_s_total": 4.6875,
+  "idle_cpu_ms_per_s_renderer": 0,
+  "idle_cpu_ms_per_s_gpu": 0,
+  "warm": {
+   "first_frame_ms": 125.30000000004657,
+   "wasm_start_to_frame_ms": 89.4,
+   "dcl_ms": 12.400000000023283,
+   "load_ms": 12.5,
+   "wasm_response_end_ms": 19.5
+  },
+  "warm_load": {
+   "requests": 3,
+   "wire_bytes": 1440,
+   "decoded_bytes": 7449235,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 0,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": true,
+     "wire": 0,
+     "decoded": 7287534
+    }
+   ]
+  }
+ },
+ {
+  "run": 4,
+  "url": "http://192.168.0.101:8889/gpui/?bench=1&backend=webgpu",
+  "browser_launch_ms": 187,
+  "cold": {
+   "first_frame_ms": 382,
+   "wasm_start_to_frame_ms": 101.5,
+   "dcl_ms": 29.400000000023283,
+   "load_ms": 29.5,
+   "wasm_response_end_ms": 267.60000000009313
+  },
+  "backend": "BrowserWebGpu",
+  "secure": true,
+  "webgpu_api": true,
+  "dpr": 1,
+  "page_load": {
+   "requests": 5,
+   "wire_bytes": 7520575,
+   "decoded_bytes": 7519763,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 160596,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": false,
+     "wire": 7287721,
+     "decoded": 7287534
+    },
+    {
+     "url": "/favicon.ico",
+     "status": 200,
+     "cache": false,
+     "wire": 15560,
+     "decoded": 15406
+    },
+    {
+     "url": "/api/query",
+     "status": 200,
+     "cache": false,
+     "wire": 55258,
+     "decoded": 55122
+    }
+   ]
+  },
+  "after_results": {
+   "renderer_ws": 252366848,
+   "renderer_private": 145506304,
+   "renderer_peak_ws": 292442112,
+   "gpu_ws": 160550912,
+   "gpu_private": 197525504,
+   "total_ws": 621150208,
+   "total_private": 412491776,
+   "procs": 8,
+   "cpu_ms": 2796.875
+  },
+  "search_to_render_ms": 71.5,
+  "search_http_ms": 59.6,
+  "search_parse_ms": 0.5,
+  "rows": 100,
+  "filter_sort": [
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 9,
+    "compute_ms": 0.6,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.4,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.5,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 3.5,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.5,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 2.2,
+    "compute_ms": 0,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.8,
+    "compute_ms": 0.1,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 6.2,
+    "compute_ms": 0.1,
+    "rows": 100
+   },
+   {
+    "ev": "filter_sort_apply",
+    "elapsed_ms": 2.3,
+    "compute_ms": 0,
+    "rows": 94
+   },
+   {
+    "ev": "filter_sort_clear",
+    "elapsed_ms": 1.9,
+    "compute_ms": 0,
+    "rows": 100
+   }
+  ],
+  "scroll": {
+   "event": "scroll",
+   "frames": 120,
+   "frame_interval_ms": {
+    "n": 119,
+    "mean": 16.613,
+    "p50": 16.6,
+    "p95": 17.9,
+    "max": 40.1
+   },
+   "frame_build_ms": {
+    "n": 120,
+    "mean": 1.838,
+    "p50": 1.5,
+    "p95": 2.8,
+    "max": 24.3
+   },
+   "final_offset_px": -2400,
+   "epoch_ms": 1790400857192,
+   "since_main_ms": 6179.6,
+   "perf_now_ms": 6459.900000000023
+  },
+  "after_script": {
+   "renderer_ws": 260349952,
+   "renderer_private": 147353600,
+   "renderer_peak_ws": 292495360,
+   "gpu_ws": 162369536,
+   "gpu_private": 192249856,
+   "total_ws": 631267328,
+   "total_private": 409161728,
+   "procs": 8,
+   "cpu_ms": 3625
+  },
+  "idle_cpu_ms_per_s_total": 15.625,
+  "idle_cpu_ms_per_s_renderer": 3.90625,
+  "idle_cpu_ms_per_s_gpu": 3.125,
+  "warm": {
+   "first_frame_ms": 181.80000000004657,
+   "wasm_start_to_frame_ms": 89.1,
+   "dcl_ms": 67.19999999995343,
+   "load_ms": 67.5,
+   "wasm_response_end_ms": 75.30000000004657
+  },
+  "warm_load": {
+   "requests": 3,
+   "wire_bytes": 1440,
+   "decoded_bytes": 7449235,
+   "detail": [
+    {
+     "url": "/gpui/",
+     "status": 200,
+     "cache": false,
+     "wire": 1440,
+     "decoded": 1290
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d.js",
+     "status": 200,
+     "cache": false,
+     "wire": 0,
+     "decoded": 160411
+    },
+    {
+     "url": "/gpui/anorak-gpui-4f86613ecb65096d_bg.wasm",
+     "status": 200,
+     "cache": true,
+     "wire": 0,
+     "decoded": 7287534
+    }
+   ]
+  }
+ }
+]
