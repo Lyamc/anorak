@@ -19,13 +19,18 @@ use crate::bench::{self, Bench, Probe, ProbeSlot, ScrollRun};
 use crate::model::{self, Filters, SortKey, SortSpec};
 use crate::text_input::{TextInput, TextInputEvent};
 
-actions!(anorak, [CloseMenus, FocusSearch]);
+actions!(anorak, [CloseMenus, FocusSearch, FocusNext, FocusPrev]);
 
 pub fn bind_keys(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("escape", CloseMenus, None),
         KeyBinding::new("secondary-l", FocusSearch, None),
         KeyBinding::new("secondary-f", FocusSearch, None),
+        // Cycle through the text fields that are on screen (search, plus the
+        // filter fields while that popover is open). In the browser this also
+        // keeps Tab from moving DOM focus off GPUI's hidden input element.
+        KeyBinding::new("tab", FocusNext, None),
+        KeyBinding::new("shift-tab", FocusPrev, None),
     ]);
 }
 
@@ -1317,6 +1322,14 @@ impl Render for AnorakApp {
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &CloseMenus, _, cx| {
                 this.close_menus();
+                cx.notify();
+            }))
+            .on_action(cx.listener(|_, _: &FocusNext, window, cx| {
+                window.focus_next(cx);
+                cx.notify();
+            }))
+            .on_action(cx.listener(|_, _: &FocusPrev, window, cx| {
+                window.focus_prev(cx);
                 cx.notify();
             }))
             .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
