@@ -2,8 +2,9 @@
 <html>
 
 <head>
+    <meta charset="utf-8">
     <title>Anorak Search</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=2">
     <script src="https://unpkg.com/htmx.org@1.9.4/dist/htmx.min.js"></script>
     <script src="https://kit.fontawesome.com/48f6fc2f0a.js" crossorigin="anonymous" async></script>
 </head>
@@ -138,6 +139,12 @@
                 }
             };
 
+            // Start closed regardless of markup/cached state, and let the
+            // results fragment (query.html) close them after each swap.
+            closeDropdowns();
+            window.__anorakCloseDropdowns = closeDropdowns;
+            window.addEventListener('pageshow', closeDropdowns);
+
             filterToggle.addEventListener('click', (e) => {
                 e.stopPropagation();
                 if (filterToggle.disabled) return;
@@ -166,6 +173,11 @@
                     filterToggle.disabled = true;
                     sortToggle.disabled = true;
                 }
+            });
+
+            // New results must never arrive with a panel open
+            document.body.addEventListener('htmx:afterSwap', (e) => {
+                if (e.detail?.target?.id === 'mainContent') closeDropdowns();
             });
         })();
     </script>

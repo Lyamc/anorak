@@ -93,6 +93,7 @@
     }
 
     if (!table) {
+        if (window.__anorakCloseDropdowns) window.__anorakCloseDropdowns();
         if (filterToggle) filterToggle.disabled = true;
         if (sortToggle) sortToggle.disabled = true;
         if (filterDot) filterDot.hidden = true;
@@ -100,6 +101,8 @@
         return;
     }
 
+    // Enable the buttons only; panels stay closed until the user clicks.
+    if (window.__anorakCloseDropdowns) window.__anorakCloseDropdowns();
     if (filterToggle) filterToggle.disabled = false;
     if (sortToggle) sortToggle.disabled = false;
 
