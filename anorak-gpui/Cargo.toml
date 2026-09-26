@@ -59,7 +59,10 @@ codegen-units = 16
 # Size-oriented profile for the WebAssembly bundle (trunk build --cargo-profile wasm-release).
 [profile.wasm-release]
 inherits = "release"
-opt-level = "s"
+# "z" vs "s" (both with build-std, see build-web.sh): 5.57 vs 6.31 MB wasm,
+# 1.69 vs 1.82 MB brotli, no measurable runtime difference in the Chrome bench
+# (docs/gpui-comparison.md, "Size and startup optimization").
+opt-level = "z"
 lto = "fat"
 codegen-units = 1
 panic = "abort"
