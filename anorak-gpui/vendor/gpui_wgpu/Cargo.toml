@@ -1,0 +1,46 @@
+# Vendored copy of Zed's crates/gpui_wgpu at rev 933d8d93819c749a607e561883855a9b95c79cea
+# (Apache-2.0, see LICENSE-APACHE), wired in through [patch] in ../../Cargo.toml.
+# Local changes are listed in PATCHES.md. Workspace-inherited fields and
+# dependencies are spelled out because this crate is outside Zed's workspace.
+[package]
+name = "gpui_wgpu"
+version = "0.1.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+[lib]
+path = "src/gpui_wgpu.rs"
+doctest = false
+
+[features]
+default = []
+font-kit = ["dep:font-kit"]
+
+[dependencies]
+gpui = { git = "https://github.com/zed-industries/zed", rev = "933d8d93819c749a607e561883855a9b95c79cea", default-features = false }
+collections = { git = "https://github.com/zed-industries/zed", rev = "933d8d93819c749a607e561883855a9b95c79cea" }
+gpui_util = { git = "https://github.com/zed-industries/zed", rev = "933d8d93819c749a607e561883855a9b95c79cea" }
+anyhow = "1.0.86"
+bytemuck = "1"
+cosmic-text = "0.19.0"
+etagere = "0.2"
+itertools = "0.14.0"
+log = { version = "0.4.16", features = ["kv_unstable_serde", "serde"] }
+parking_lot = "0.12.1"
+profiling = "1"
+raw-window-handle = "0.6"
+smallvec = { version = "1.6", features = ["union", "const_new"] }
+swash = "0.2.6"
+unicode-bidi = { version = "0.3.18", default-features = false, features = ["hardcoded-data"] }
+unicode-segmentation = "1.10"
+wgpu = "29.0.4"
+font-kit = { git = "https://github.com/zed-industries/font-kit", rev = "94b0f28166665e8fd2f53ff6d268a14955c82269", package = "zed-font-kit", version = "0.14.1-zed", optional = true }
+
+[target.'cfg(target_family = "wasm")'.dependencies]
+web-sys = { version = "0.3", features = ["HtmlCanvasElement"] }
+wgpu = { version = "29.0.4", features = ["webgl"] }
+
+[lints.rust]
+# Upstream code refers to features (bench-support, test-support) this copy drops.
+unexpected_cfgs = "allow"

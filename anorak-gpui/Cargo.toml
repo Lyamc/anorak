@@ -36,6 +36,11 @@ wasm-bindgen = "0.2"
 console_error_panic_hook = "0.1.7"
 web-sys = { version = "0.3", features = ["console", "Location", "Window", "Performance"] }
 
+# Local copy of gpui_wgpu with lazy pipeline creation on wasm, see
+# vendor/gpui_wgpu/PATCHES.md.
+[patch."https://github.com/zed-industries/zed"]
+gpui_wgpu = { path = "vendor/gpui_wgpu" }
+
 # Mirrors the [patch.crates-io] entries in Zed's workspace root that GPUI's
 # dependency graph relies on (patches of a git dependency's workspace are not
 # applied to dependents).
