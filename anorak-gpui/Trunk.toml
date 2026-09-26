@@ -1,0 +1,6 @@
+# Web build of the GPUI client:  trunk build --release
+# Output goes to dist/, which the Anorak server serves under /gpui/.
+[build]
+target = "index.html"
+dist = "dist"
+public_url = "/gpui/"

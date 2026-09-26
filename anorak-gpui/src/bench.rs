@@ -1,16 +1,16 @@
-//! `--bench` instrumentation: timestamps are taken inside the process
-//! (paint of the frame that first contains the change) and appended as JSON
-//! lines to the bench log, so an external harness can aggregate runs.
+//! `--bench` / `?bench=1` instrumentation: timestamps are taken inside the
+//! process (paint of the frame that first contains the change). Native builds
+//! append JSON lines to the bench log file; the web build pushes the same JSON
+//! strings onto `window.__anorakBench` (and the console) for the harness.
 
 use std::cell::RefCell;
-use std::fs::OpenOptions;
-use std::io::Write;
-use std::path::PathBuf;
 use std::rc::Rc;
-use std::time::{Instant, SystemTime, UNIX_EPOCH};
+
+use web_time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub struct Bench {
-    pub out: PathBuf,
+    #[cfg(not(target_family = "wasm"))]
+    pub out: std::path::PathBuf,
     pub term: String,
     pub main_start: Instant,
     /// Run the functional self-test script instead of the timing script.
@@ -26,9 +26,41 @@ impl Bench {
                 "since_main_ms".into(),
                 ms(self.main_start.elapsed().as_secs_f64()).into(),
             );
+            #[cfg(target_family = "wasm")]
+            if let Some(perf) = web_sys::window().and_then(|w| w.performance()) {
+                // Relative to navigation start, so the harness gets load -> frame.
+                obj.insert("perf_now_ms".into(), perf.now().into());
+            }
         }
-        if let Ok(mut f) = OpenOptions::new().create(true).append(true).open(&self.out) {
-            let _ = writeln!(f, "{v}");
+        #[cfg(not(target_family = "wasm"))]
+        {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(&self.out)
+            {
+                let _ = writeln!(f, "{v}");
+            }
+        }
+        #[cfg(target_family = "wasm")]
+        {
+            use wasm_bindgen::JsValue;
+            let line = v.to_string();
+            if let Some(w) = web_sys::window() {
+                let key = JsValue::from_str("__anorakBench");
+                let arr = js_sys::Reflect::get(&w, &key)
+                    .ok()
+                    .filter(|a| js_sys::Array::is_array(a))
+                    .map(|a| js_sys::Array::from(&a))
+                    .unwrap_or_else(|| {
+                        let a = js_sys::Array::new();
+                        let _ = js_sys::Reflect::set(&w, &key, &a);
+                        a
+                    });
+                arr.push(&JsValue::from_str(&line));
+            }
+            web_sys::console::log_1(&format!("ANORAK_BENCH {line}").into());
         }
     }
 }

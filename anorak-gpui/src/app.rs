@@ -3,16 +3,18 @@
 
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+
+use web_time::Instant;
 
 use gpui::{
-    AnyElement, App, ClickEvent, Context, Corner, Entity, FocusHandle, Focusable, FontWeight,
+    AnyElement, App, ClickEvent, Context, Anchor, Entity, FocusHandle, Focusable, FontWeight,
     Hsla, KeyBinding, MouseButton, SharedString, Stateful, Subscription, Task,
     UniformListScrollHandle, Window, actions, anchored, canvas, deferred, div, point, prelude::*,
     px, rgb, rgba, uniform_list,
 };
 
-use crate::api::{self, ApiItem, QueryTiming};
+use crate::api::{self, ApiItem, QueryResult};
 use crate::bench::{self, Bench, Probe, ProbeSlot, ScrollRun};
 use crate::model::{self, Filters, SortKey, SortSpec};
 use crate::text_input::{TextInput, TextInputEvent};
@@ -33,6 +35,13 @@ const ACCENT: u32 = 0xCAD4DF;
 const BORDER: u32 = 0xB8C2CD;
 const DARK_BORDER: u32 = 0x656E77;
 const ROW_H: f32 = 36.;
+
+/// Native uses the system Arial (as the web UI's CSS does); the browser build
+/// has no system fonts and uses the IBM Plex Sans it embeds.
+#[cfg(not(target_family = "wasm"))]
+const UI_FONT: &str = "Arial";
+#[cfg(target_family = "wasm")]
+const UI_FONT: &str = crate::web::UI_FONT;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Popover {
@@ -141,7 +150,7 @@ impl AnorakApp {
                 }
             }));
         }
-        window.focus(&search.focus_handle(cx));
+        window.focus(&search.focus_handle(cx), cx);
 
         let probe: ProbeSlot = Rc::new(RefCell::new(None));
         let bench = bench.map(Rc::new);
@@ -196,11 +205,10 @@ impl AnorakApp {
         self.grabbed_msg = None;
         cx.notify();
 
-        let server = self.server.clone();
         let started = Instant::now();
-        let executor = cx.background_executor().clone();
+        let request = api::query_task(self.server.clone(), term, cx);
         self.search_task = Some(cx.spawn_in(window, async move |this, cx| {
-            let result = executor.spawn(async move { api::query(&server, &term) }).await;
+            let result = request.await;
             this.update_in(cx, |this, window, cx| {
                 this.apply_results(result, started, window, cx)
             })
@@ -210,7 +218,7 @@ impl AnorakApp {
 
     fn apply_results(
         &mut self,
-        result: Result<(Vec<ApiItem>, QueryTiming), String>,
+        result: QueryResult,
         started: Instant,
         _window: &mut Window,
         cx: &mut Context<Self>,
@@ -326,11 +334,9 @@ impl AnorakApp {
         let (server, magnet, category) =
             (self.server.clone(), row.item.magnet.clone(), row.item.category.clone());
         cx.notify();
-        let executor = cx.background_executor().clone();
+        let request = api::grab_task(server, magnet, category, cx);
         cx.spawn(async move |this, cx| {
-            let result = executor
-                .spawn(async move { api::grab(&server, &magnet, &category) })
-                .await;
+            let result = request.await;
             this.update(cx, |this, cx| {
                 if let Some(row) = this.rows.get_mut(ix) {
                     match result {
@@ -368,15 +374,16 @@ impl AnorakApp {
             .map(|&i| (i, self.rows[i].item.magnet.clone(), self.rows[i].item.category.clone()))
             .collect();
         let server = self.server.clone();
-        let executor = cx.background_executor().clone();
         cx.spawn(async move |this, cx| {
             let mut ok = 0usize;
             // Sequential, like the web UI, so rqbit sees one add at a time.
             for (ix, magnet, category) in jobs {
-                let server = server.clone();
-                let result = executor
-                    .spawn(async move { api::grab(&server, &magnet, &category) })
-                    .await;
+                let Ok(request) = this.update(cx, |_, cx| {
+                    api::grab_task(server.clone(), magnet, category, cx)
+                }) else {
+                    return;
+                };
+                let result = request.await;
                 if result.is_ok() {
                     ok += 1;
                 }
@@ -778,7 +785,7 @@ impl AnorakApp {
             wrapper = wrapper.child(
                 div().absolute().bottom_0().right_0().child(deferred(
                     anchored()
-                        .anchor(Corner::TopRight)
+                        .anchor(Anchor::TopRight)
                         .offset(point(px(0.), px(6.)))
                         .snap_to_window_with_margin(px(8.))
                         .child(
@@ -886,7 +893,7 @@ impl AnorakApp {
             .text_size(px(14.))
             .cursor_pointer()
             .child(current_label)
-            .child(div().text_size(px(10.)).child(if is_open { "▲" } else { "▼" }))
+            .child(div().text_size(px(12.)).child(if is_open { "↑" } else { "↓" }))
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                 this.open_select = if this.open_select == Some(which) { None } else { Some(which) };
                 cx.notify();
@@ -987,9 +994,9 @@ impl AnorakApp {
             if p.key != key {
                 ""
             } else if p.asc {
-                " ▲"
+                " ↑"
             } else {
-                " ▼"
+                " ↓"
             }
         };
         let p = self.primary;
@@ -1261,7 +1268,7 @@ impl Render for AnorakApp {
                                 count,
                                 cx.processor(|this, range, _window, cx| this.render_rows(range, cx)),
                             )
-                            .track_scroll(self.scroll.clone())
+                            .track_scroll(&self.scroll)
                             .size_full(),
                         ),
                     );
@@ -1313,7 +1320,7 @@ impl Render for AnorakApp {
                 cx.notify();
             }))
             .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
-                window.focus(&this.search.focus_handle(cx));
+                window.focus(&this.search.focus_handle(cx), cx);
                 cx.notify();
             }))
             .on_mouse_down(MouseButton::Left, |_, _, _| {})
@@ -1322,7 +1329,7 @@ impl Render for AnorakApp {
             .flex()
             .justify_center()
             .bg(rgb(BG))
-            .font_family("Arial")
+            .font_family(UI_FONT)
             .text_size(px(16.))
             .text_color(rgb(TEXT))
             .child(body)
