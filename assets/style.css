@@ -1,5 +1,95 @@
+/* ---------------------------------------------------------------------
+   Theme
+   Colours live in custom properties. Light is the default; dark applies
+   when the OS prefers dark (unless the user picked light) or when the
+   user picked dark. The choice is stored in localStorage and applied to
+   <html data-theme="system|light|dark"> by an inline script in <head>
+   before this stylesheet paints, so there is no light flash.
+   --------------------------------------------------------------------- */
+:root {
+    color-scheme: light;
+    --bg: #DDDBDE;
+    --text: #3B373B;
+    --muted: #5f5f5f;
+    --surface: #fff;
+    --surface-hover: #fcfcfc;
+    --border: #CAD4DF;
+    --border-strong: #656E77;
+    --accent-bg: #CAD4DF;
+    --panel-border: #B8C2CD;
+    --shadow: rgba(59, 55, 59, 0.18);
+    --primary-bg: #3B373B;
+    --primary-text: #fff;
+    --primary-hover: #555;
+    --row-hover: #fcfcfc;
+    --row-selected: #eef1f5;
+    --link: #1f5fa8;
+    --success: #2f6f35;
+    --placeholder: #757575;
+    --search-icon: url('searchicon.png');
+}
+
+/* Dark palette, shared by "system + OS prefers dark" and explicit "dark". */
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        color-scheme: dark;
+        --bg: #1b1c1f;
+        --text: #e4e2e5;
+        --muted: #a3a3a8;
+        --surface: #26282c;
+        --surface-hover: #2f3237;
+        --border: #3d434b;
+        --border-strong: #8a95a1;
+        --accent-bg: #33404d;
+        --panel-border: #4a5767;
+        --shadow: rgba(0, 0, 0, 0.55);
+        --primary-bg: #d7dce2;
+        --primary-text: #1b1c1f;
+        --primary-hover: #bcc4cd;
+        --row-hover: #2a2d32;
+        --row-selected: #2b3644;
+        --link: #8ab8f0;
+        --success: #7fd08a;
+        --placeholder: #9aa0a6;
+        --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='21' height='21' viewBox='0 0 21 21'%3E%3Ccircle cx='8.5' cy='8.5' r='6' fill='none' stroke='%239aa0a6' stroke-width='2.2'/%3E%3Cpath d='M13 13l6 6' stroke='%239aa0a6' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E");
+    }
+}
+
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #1b1c1f;
+    --text: #e4e2e5;
+    --muted: #a3a3a8;
+    --surface: #26282c;
+    --surface-hover: #2f3237;
+    --border: #3d434b;
+    --border-strong: #8a95a1;
+    --accent-bg: #33404d;
+    --panel-border: #4a5767;
+    --shadow: rgba(0, 0, 0, 0.55);
+    --primary-bg: #d7dce2;
+    --primary-text: #1b1c1f;
+    --primary-hover: #bcc4cd;
+    --row-hover: #2a2d32;
+    --row-selected: #2b3644;
+    --link: #8ab8f0;
+    --success: #7fd08a;
+    --placeholder: #9aa0a6;
+    --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='21' height='21' viewBox='0 0 21 21'%3E%3Ccircle cx='8.5' cy='8.5' r='6' fill='none' stroke='%239aa0a6' stroke-width='2.2'/%3E%3Cpath d='M13 13l6 6' stroke='%239aa0a6' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
 body {
-    background-color: #DDDBDE;
+    background-color: var(--bg);
+    color: var(--text);
+}
+
+a {
+    color: var(--link);
+}
+
+::placeholder {
+    color: var(--placeholder);
+    opacity: 1;
 }
 
 /* Author `display` rules (e.g. .dropdown-panel { display: flex }) beat the
@@ -27,8 +117,8 @@ body {
 
 .search input[type=text] {
     font-family: Arial, Helvetica, sans-serif;
-    background-color: white;
-    background-image: url('searchicon.png');
+    background-color: var(--surface);
+    background-image: var(--search-icon);
     background-position: 10px 50%;
     background-repeat: no-repeat;
     padding-left: 40px;
@@ -37,8 +127,8 @@ body {
     box-sizing: border-box;
     height: 45px;
     border-radius: 4px;
-    border: 3px solid #CAD4DF;
-    color: #3B373B;
+    border: 3px solid var(--border);
+    color: var(--text);
 
     -webkit-transition: 0.5s;
     transition: 0.5s;
@@ -46,7 +136,7 @@ body {
 }
 
 .search input[type=text]:focus {
-    border: 3px solid #656E77;
+    border: 3px solid var(--border-strong);
 }
 
 .search-dropdown {
@@ -59,10 +149,10 @@ body {
     height: 45px;
     min-width: 78px;
     padding: 0 14px;
-    border: 3px solid #CAD4DF;
+    border: 3px solid var(--border);
     border-radius: 4px;
-    background: #fff;
-    color: #3B373B;
+    background: var(--surface);
+    color: var(--text);
     font-size: 14px;
     font-weight: bold;
     cursor: pointer;
@@ -71,8 +161,8 @@ body {
 }
 
 .dropdown-toggle:hover:not(:disabled) {
-    border-color: #656E77;
-    background: #fcfcfc;
+    border-color: var(--border-strong);
+    background: var(--surface-hover);
 }
 
 .dropdown-toggle:disabled {
@@ -81,8 +171,8 @@ body {
 }
 
 .search-dropdown.open .dropdown-toggle {
-    border-color: #656E77;
-    background: #CAD4DF;
+    border-color: var(--border-strong);
+    background: var(--accent-bg);
 }
 
 .active-dot {
@@ -92,8 +182,8 @@ body {
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #3B373B;
-    box-shadow: 0 0 0 2px #fff;
+    background: var(--text);
+    box-shadow: 0 0 0 2px var(--surface);
 }
 
 .dropdown-panel {
@@ -104,14 +194,14 @@ body {
     min-width: 280px;
     max-width: min(360px, calc(100vw - 24px));
     padding: 12px;
-    background: #CAD4DF;
+    background: var(--accent-bg);
     border-radius: 4px;
-    border: 2px solid #B8C2CD;
-    box-shadow: 0 8px 24px rgba(59, 55, 59, 0.18);
+    border: 2px solid var(--panel-border);
+    box-shadow: 0 8px 24px var(--shadow);
     display: none;
     flex-direction: column;
     gap: 10px;
-    color: #3B373B;
+    color: var(--text);
 }
 
 /* Panels are closed unless their dropdown is explicitly opened by a click. */
@@ -155,19 +245,19 @@ body {
 #mainContent td,
 #mainContent th {
     padding: 8px;
-    color: #3B373B;
+    color: var(--text);
 }
 
 #mainContent tbody tr:hover {
-    background-color: #fcfcfc;
+    background-color: var(--row-hover);
 }
 
 #mainContent th {
     padding-top: 12px;
     padding-bottom: 12px;
     text-align: left;
-    background-color: #CAD4DF;
-    color: #3B373B;
+    background-color: var(--accent-bg);
+    color: var(--text);
     border-radius: 4px;
 }
 
@@ -186,7 +276,7 @@ body {
 }
 
 .muted {
-    color: #888;
+    color: var(--muted);
 }
 
 /* Column sizing */
@@ -240,7 +330,7 @@ body {
     margin: 4px 0 12px;
     padding: 0;
     background: transparent;
-    color: #3B373B;
+    color: var(--text);
 }
 
 .toolbar-row {
@@ -274,11 +364,11 @@ body {
     font-family: Arial, Helvetica, sans-serif;
     font-weight: normal;
     height: 32px;
-    border: 2px solid #B8C2CD;
+    border: 2px solid var(--panel-border);
     border-radius: 4px;
     padding: 0 8px;
-    color: #3B373B;
-    background: #fff;
+    color: var(--text);
+    background: var(--surface);
     box-sizing: border-box;
     width: 100%;
     min-width: 0;
@@ -287,16 +377,16 @@ body {
 .toolbar-btn {
     font-family: Arial, Helvetica, sans-serif;
     height: 32px;
-    border: 2px solid #656E77;
+    border: 2px solid var(--border-strong);
     border-radius: 4px;
-    background: #fff;
-    color: #3B373B;
+    background: var(--surface);
+    color: var(--text);
     padding: 0 12px;
     cursor: pointer;
 }
 
 .toolbar-btn:hover:not(:disabled) {
-    background: #fcfcfc;
+    background: var(--surface-hover);
 }
 
 .toolbar-btn:disabled {
@@ -305,13 +395,13 @@ body {
 }
 
 .toolbar-btn.primary {
-    background: #3B373B;
-    color: #fff;
-    border-color: #3B373B;
+    background: var(--primary-bg);
+    color: var(--primary-text);
+    border-color: var(--primary-bg);
 }
 
 .toolbar-btn.primary:hover:not(:disabled) {
-    background: #555;
+    background: var(--primary-hover);
 }
 
 .toolbar-meta {
@@ -323,6 +413,55 @@ body {
 .toolbar-row.actions .toolbar-meta + .toolbar-meta {
     margin-right: 8px;
     margin-left: 0;
+}
+
+/* Theme toggle sits in the toolbar right of Filter/Sort and reuses the
+   .dropdown-toggle look. */
+.theme-toggle {
+    flex: 0 0 auto;
+    min-width: 92px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.theme-toggle .theme-icon {
+    display: inline-flex;
+    width: 1em;
+    justify-content: center;
+}
+
+/* Selected result rows */
+#mainContent tbody tr:has(.row-select:checked) {
+    background-color: var(--row-selected);
+}
+
+#mainContent tbody tr:has(.row-select:checked):hover {
+    background-color: var(--row-hover);
+}
+
+/* Per-row Grab button and its "added" state */
+#mainContent .grab-cell button {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 3px;
+    padding: 1px 6px;
+    cursor: pointer;
+}
+
+#mainContent .grab-cell button:hover {
+    background: var(--accent-bg);
+}
+
+#mainContent .grab-cell .fa-check,
+#mainContent .grab-cell svg.fa-check {
+    color: var(--success);
+}
+
+#mainContent p {
+    color: var(--text);
 }
 
 @media (max-width: 720px) {
