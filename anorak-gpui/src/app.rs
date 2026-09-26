@@ -225,7 +225,7 @@ impl AnorakApp {
         &mut self,
         result: QueryResult,
         started: Instant,
-        _window: &mut Window,
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         let t_apply = Instant::now();
@@ -244,6 +244,10 @@ impl AnorakApp {
                 self.status = Status::Loaded;
                 self.recompute();
                 self.scroll.scroll_to_item(0, gpui::ScrollStrategy::Top);
+                #[cfg(target_arch = "wasm32")]
+                self.warm_browser_font_fallback(window, cx);
+                #[cfg(not(target_arch = "wasm32"))]
+                let _ = window;
                 if self.bench.is_some() {
                     *self.probe.borrow_mut() = Some(Probe {
                         name: "search_to_render",
@@ -454,6 +458,48 @@ impl AnorakApp {
         self.read_filters(cx);
         self.recompute();
         cx.notify();
+    }
+
+    /// wasm only: gpui_web draws CJK and emoji through Canvas 2D with the browser's
+    /// system fonts (CanvasFontFallback::EmojiAndCjk). The first time the page uses each
+    /// such script, Chrome resolves a system fallback font synchronously (measured 5-7 ms
+    /// per script on Windows, cjkprobe.mjs), which used to land in the scroll frame that
+    /// first showed a CJK title: a 20+ ms frame and one dropped frame per bench run.
+    /// Shape those titles once, off the results frame, so the lookup and gpui_web's
+    /// glyph measurements are cached before the rows scroll into view.
+    #[cfg(target_arch = "wasm32")]
+    fn warm_browser_font_fallback(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        fn browser_font(c: char) -> bool {
+            c >= '\u{2E80}' || ('\u{2600}'..='\u{27BF}').contains(&c)
+        }
+        let titles: Vec<SharedString> = self
+            .rows
+            .iter()
+            .filter(|r| r.item.title.chars().any(browser_font))
+            .take(64)
+            .map(|r| SharedString::from(r.item.title.clone()))
+            .collect();
+        if titles.is_empty() {
+            return;
+        }
+        let executor = cx.background_executor().clone();
+        cx.spawn_in(window, async move |_, cx| {
+            // After the results frame has been presented.
+            executor.timer(Duration::from_millis(50)).await;
+            let _ = cx.update(|window, _| {
+                let mut style = window.text_style();
+                style.font_family = UI_FONT.into();
+                // Rows use the root 16 px size; the expanded row's title is bold.
+                for weight in [FontWeight::NORMAL, FontWeight::BOLD] {
+                    style.font_weight = weight;
+                    for title in &titles {
+                        let run = style.to_run(title.len());
+                        window.text_system().shape_line(title.clone(), px(16.), &[run], None);
+                    }
+                }
+            });
+        })
+        .detach();
     }
 
     fn filters_ready(&self) -> bool {
