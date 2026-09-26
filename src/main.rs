@@ -37,6 +37,10 @@ pub async fn main() {
             get(routes::api::query_get).post(routes::api::query_post),
         )
         .route("/send-to-rqbit/", post(routes::send_to_rqbit::endpoint))
+        // Optional GPUI WebAssembly client (anorak-gpui/, `trunk build --release`),
+        // served same-origin so it can call /api/query and /send-to-rqbit/
+        // without CORS. ServeDir sends `.wasm` as application/wasm.
+        .nest_service("/gpui", ServeDir::new(gpui_dist()))
         .nest_service("/", ServeDir::new("assets"))
         .layer(map_request(strip_conditional_headers))
         .layer(map_response(no_stale_cache));
@@ -46,6 +50,12 @@ pub async fn main() {
         .unwrap();
     info!("Anorak running on http://localhost:{}", CONFIG.port);
     axum::serve(listener, app).await.unwrap();
+}
+
+/// Directory holding the Trunk output of anorak-gpui. `ANORAK_GPUI_DIST`
+/// overrides it; if the directory is missing, /gpui/ simply returns 404.
+fn gpui_dist() -> String {
+    std::env::var("ANORAK_GPUI_DIST").unwrap_or_else(|_| "anorak-gpui/dist".to_string())
 }
 
 // Assets are served from the Nix store, where every file's mtime is the epoch.
