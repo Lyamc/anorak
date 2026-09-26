@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Anorak Search (GPUI)</title>
+    <link data-trunk rel="rust" data-bin="anorak-gpui" data-bindgen-target="web"
+          data-cargo-profile="wasm-release" data-wasm-opt="s"
+          data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue" />
+    <style>
+        html, body { margin: 0; height: 100%; overflow: hidden; background: #DDDBDE; }
+        canvas { display: block; width: 100%; height: 100%; outline: none;
+                 touch-action: none; -webkit-user-select: none; user-select: none; }
+    </style>
+</head>
+<body>
+    <noscript>This page runs the GPUI client as WebAssembly and needs JavaScript.</noscript>
+</body>
+</html>

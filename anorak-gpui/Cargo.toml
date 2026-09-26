@@ -2,7 +2,7 @@
 name = "anorak-gpui"
 version = "0.1.0"
 edition = "2024"
-description = "Native GPUI desktop client for the Anorak search server"
+description = "GPUI client for the Anorak search server (native desktop and WebAssembly)"
 license = "GPL-3.0-or-later"
 publish = false
 
@@ -10,14 +10,48 @@ publish = false
 # Cargo.lock (which nix/package.nix uses to build the deployed server).
 [workspace]
 
+# GPUI's web platform (crates/gpui_web, zed-industries/zed#50228) is not on
+# crates.io, so GPUI comes from Zed's git repository pinned to one commit.
+# Bump all three revs together.
 [dependencies]
-gpui = "=0.2.2"
+gpui = { git = "https://github.com/zed-industries/zed", rev = "933d8d93819c749a607e561883855a9b95c79cea" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-ureq = { version = "3", default-features = false }
 unicode-segmentation = "1"
+web-time = "1.1"
+
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "933d8d93819c749a607e561883855a9b95c79cea" }
+ureq = { version = "3", default-features = false }
+
+# Single-threaded web platform: gpui_web without its default `multithreaded`
+# feature, so the bundle needs no SharedArrayBuffer, COOP/COEP headers or
+# build-std. HTTP goes through gpui_web's FetchHttpClient (browser fetch).
+[target.'cfg(target_family = "wasm")'.dependencies]
+gpui_web = { git = "https://github.com/zed-industries/zed", rev = "933d8d93819c749a607e561883855a9b95c79cea", default-features = false }
+http_client = { git = "https://github.com/zed-industries/zed", rev = "933d8d93819c749a607e561883855a9b95c79cea" }
+futures = "0.3"
+js-sys = "0.3"
+wasm-bindgen = "0.2"
+console_error_panic_hook = "0.1.7"
+web-sys = { version = "0.3", features = ["console", "Location", "Window", "Performance"] }
+
+# Mirrors the [patch.crates-io] entries in Zed's workspace root that GPUI's
+# dependency graph relies on (patches of a git dependency's workspace are not
+# applied to dependents).
+[patch.crates-io]
+async-task = { git = "https://github.com/smol-rs/async-task.git", rev = "b4486cd71e4e94fbda54ce6302444de14f4d190e" }
+async-process = { git = "https://github.com/zed-industries/async-process.git", rev = "0b6d6713570af61806e1e5cb40e0f757cb93fd9d" }
 
 [profile.release]
 strip = true
 lto = "thin"
 codegen-units = 16
+
+# Size-oriented profile for the WebAssembly bundle (trunk build --cargo-profile wasm-release).
+[profile.wasm-release]
+inherits = "release"
+opt-level = "s"
+lto = "fat"
+codegen-units = 1
+panic = "abort"
