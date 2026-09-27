@@ -829,3 +829,42 @@ a {
     color: var(--muted);
     font-size: 12px;
 }
+
+/* Phones: the search box gets its own row, the four buttons share the
+   next one, and every panel opens full-width under the bar. */
+@media (max-width: 600px) {
+    .search-bar {
+        flex-wrap: wrap;
+        position: relative;
+    }
+
+    .search-form {
+        flex: 1 1 100%;
+    }
+
+    .search-dropdown {
+        position: static;
+    }
+
+    .search-dropdown,
+    .theme-toggle {
+        flex: 1 1 0;
+    }
+
+    .search-dropdown .dropdown-toggle {
+        width: 100%;
+        min-width: 0;
+        padding: 0 6px;
+    }
+
+    .theme-toggle {
+        min-width: 0;
+    }
+
+    .search-bar .dropdown-panel {
+        left: 0;
+        right: 0;
+        min-width: 0;
+        max-width: none;
+    }
+}
