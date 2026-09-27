@@ -10,6 +10,7 @@
 //!   file list (on demand; see `torrent_files`).
 
 use crate::app_error::AppError;
+use crate::client;
 use crate::lodestarr;
 use crate::models;
 use crate::routes::query::{gather_items, SearchFilter};
@@ -173,4 +174,10 @@ pub async fn files(Query(q): Query<FilesQuery>) -> Response {
             (StatusCode::BAD_GATEWAY, body).into_response()
         }
     }
+}
+
+/// `GET /api/client`: the torrent client results are sent to.
+#[debug_handler]
+pub async fn client() -> Json<client::ClientInfo> {
+    Json(client::info().await)
 }

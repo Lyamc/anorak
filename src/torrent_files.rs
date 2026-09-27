@@ -64,6 +64,37 @@ pub fn is_magnet(s: &str) -> bool {
     lower.starts_with("magnet:?") && lower.contains("xt=urn:btih:")
 }
 
+/// An http(s) link that may be a details page rather than a magnet.
+pub fn is_page_link(s: &str) -> bool {
+    !is_magnet(s) && is_http(s)
+}
+
+/// For a result whose link is http: the magnet on its details page, or
+/// None when the link already serves a .torrent (the client can add that).
+/// Uses the file-list cache's page lookups when possible.
+pub async fn magnet_for_link(link: &str, indexer: &str) -> Result<Option<String>> {
+    if let Some(magnet) = PAGE_MAGNETS.lock().await.get(link) {
+        return Ok(Some(magnet.clone()));
+    }
+    let body = fetch_proxied(link, indexer).await?;
+    if body.first() == Some(&b'd') {
+        return Ok(None);
+    }
+    let magnet = magnet_in_page(&body).ok_or_else(|| anyhow!("no magnet on the result's page"))?;
+    remember_page_magnet(link, &magnet).await;
+    Ok(Some(magnet))
+}
+
+static PAGE_MAGNETS: Lazy<Mutex<HashMap<String, String>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+
+async fn remember_page_magnet(link: &str, magnet: &str) {
+    let mut map = PAGE_MAGNETS.lock().await;
+    if map.len() >= CACHE_CAP {
+        map.clear();
+    }
+    map.insert(link.to_string(), magnet.to_string());
+}
+
 fn is_http(s: &str) -> bool {
     let lower = s.trim().to_ascii_lowercase();
     lower.starts_with("http://") || lower.starts_with("https://")
@@ -130,6 +161,7 @@ async fn from_page(link: &str, indexer: &str) -> Result<FileInfo> {
         }
     }
     let magnet = magnet_in_page(&body).ok_or_else(|| anyhow!("no magnet on the result's page"))?;
+    remember_page_magnet(link, &magnet).await;
     let bytes = resolve_magnet(&magnet).await?;
     parse(&bytes, "magnet")
 }

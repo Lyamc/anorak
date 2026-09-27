@@ -1,3 +1,4 @@
+mod client;
 mod config;
 mod lodestarr;
 mod models;
@@ -40,6 +41,7 @@ pub async fn main() {
         )
         .route("/api/indexers", get(routes::api::indexers))
         .route("/api/files", get(routes::api::files))
+        .route("/api/client", get(routes::api::client))
         .route("/send-to-rqbit/", post(routes::send_to_rqbit::endpoint))
         .nest_service("/", ServeDir::new("assets"))
         .layer(map_request(strip_conditional_headers))
