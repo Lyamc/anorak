@@ -89,9 +89,18 @@ X11, and xkbcommon development libraries.
   (seeders, then peers).
 - **Filter** popover: name contains, min seeds, min/max size (MB), and Clear
   filters. A dot on the button shows when filters are active.
-- **Sort** popover: primary and "then" sort over the web UI's eight options,
-  and Clear sort. Clicking a column header sorts by that column (the same
-  column flips direction; a new column starts descending), as in the web UI.
+- **Sort** popover, as in the web UI: 1 to 4 sort levels. Each level picks a
+  field with joined icon buttons (Name, Size, Seeds, Age; fields used by an
+  earlier level are disabled) and has a direction toggle (up arrow ascending,
+  down arrow descending). A newly picked field starts at its default (Name
+  A-Z; Size, Seeds and Age largest/most/newest first). "+ Then by" adds a
+  level with the first unused field, x removes one, and picking a field that a
+  later level uses swaps the two. Clear sort resets to most seeds first; a dot
+  on the button shows when the sort differs from that. Clicking a column
+  header sets level 1 (the same column flips direction; a new column starts at
+  its default direction). Sorting is stable and multi-key. The icons are
+  glyphs of a small embedded font (`assets/fonts/anorak-icons`, built from
+  `assets/icons/*.svg` by `assets/icons/build-font.py`).
 - The popovers close on Escape, on an outside click, on toggle, and when a new
   search starts. The buttons are disabled until results are loaded.
 - Results table: per-row checkbox and a header select-all (checked,
@@ -111,6 +120,8 @@ X11, and xkbcommon development libraries.
   the paint of the frame that shows the change.
 - `--selftest LOG` drives the same handlers the UI uses (popovers, filters,
   sort, select-all, grab) and logs state after each step.
-- In the browser the same modes are `?bench=1` and `?selftest=1`.
+- In the browser the same modes are `?bench=1` and `?selftest=1`. `?trace=1`
+  publishes the UI state (sort levels, panel tooltips, first rows, ...) as
+  JSON on `window.__anorakState` for harnesses that drive real mouse input.
 
 See `docs/gpui-comparison.md` in the repo root for the results.

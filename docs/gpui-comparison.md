@@ -121,11 +121,12 @@ the web UI is unchanged on this branch.
 **Present:**
 - Search on Enter.
 - Filter popover (name contains, min seeds, min/max MB, Clear filters) and
-  Sort popover (primary + then, the same 8 options, Clear sort), with active
-  dots.
+  Sort popover (1-4 levels with icon field pickers, direction toggles,
+  "+ Then by", remove and Clear sort, as redesigned in master 490208d), with
+  active dots.
 - Popovers close on Esc, outside click, toggle, or a new search. The buttons
   are disabled until results arrive and during a search.
-- Column-header sort with the same rule as the web UI.
+- Column-header sort with the same rule as the web UI (sets sort level 1).
 - Row checkboxes and tri-state select-all. Hidden rows are deselected.
 - "N shown / M" and "N selected / Grabbed N".
 - Per-row Grab and sequential Grab selected, sent to `/send-to-rqbit/` with
@@ -136,7 +137,12 @@ the web UI is unchanged on this branch.
 - The title cell does not expand in place. The full title is in a hover
   tooltip and in a strip below the table on click. Long titles are clipped,
   not ellipsized.
-- Text labels replace the Font Awesome icons.
+- Text labels replace the Font Awesome icons, except in the Sort panel,
+  whose field, direction and remove icons are glyphs of a small embedded icon
+  font (about 1.4 KB).
+- Sort ties keep the server's order. The web UI's stable sort keeps the
+  previous on-screen order for ties.
+- No dark mode (the web UI follows `prefers-color-scheme`).
 - The text field (adapted from GPUI's input example) has no undo, no
   double-click word select and no scrolling for text wider than the box.
 - No Tab focus order between fields. (Fixed on `feature/gpui-wasm`: Tab and

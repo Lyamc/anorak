@@ -38,6 +38,13 @@ pub fn query_param(name: &str) -> Option<String> {
     })
 }
 
+/// `?trace=1`: the latest UI state as JSON on `window.__anorakState`.
+pub fn publish_state(json: &str) {
+    if let Some(w) = web_sys::window() {
+        let _ = js_sys::Reflect::set(&w, &"__anorakState".into(), &json.into());
+    }
+}
+
 fn backend_preference() -> WebBackendPreference {
     match query_param("backend").as_deref() {
         Some("webgpu") => WebBackendPreference::WebGpu,
