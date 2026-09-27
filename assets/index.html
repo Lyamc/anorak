@@ -13,7 +13,7 @@
             document.documentElement.setAttribute('data-theme', t === 'light' || t === 'dark' ? t : 'system');
         })();
     </script>
-    <link rel="stylesheet" href="style.css?v=3">
+    <link rel="stylesheet" href="style.css?v=4">
     <script src="https://unpkg.com/htmx.org@1.9.4/dist/htmx.min.js"></script>
     <script src="https://kit.fontawesome.com/48f6fc2f0a.js" crossorigin="anonymous" async></script>
 </head>
@@ -60,35 +60,14 @@
                     Sort
                     <span class="active-dot" id="sortDot" hidden></span>
                 </button>
-                <div class="dropdown-panel" id="sortPanel" hidden>
-                    <label class="toolbar-field grow">
-                        <span>Sort</span>
-                        <select id="sortPrimary">
-                            <option value="seeders:desc" selected>Most seeds</option>
-                            <option value="seeders:asc">Least seeds</option>
-                            <option value="size:desc">Largest</option>
-                            <option value="size:asc">Smallest</option>
-                            <option value="date:desc">Newest</option>
-                            <option value="date:asc">Oldest</option>
-                            <option value="name:asc">Title A–Z</option>
-                            <option value="name:desc">Title Z–A</option>
-                        </select>
-                    </label>
-                    <label class="toolbar-field grow">
-                        <span>Then</span>
-                        <select id="sortSecondary">
-                            <option value="" selected>None</option>
-                            <option value="seeders:desc">Most seeds</option>
-                            <option value="seeders:asc">Least seeds</option>
-                            <option value="size:desc">Largest</option>
-                            <option value="size:asc">Smallest</option>
-                            <option value="date:desc">Newest</option>
-                            <option value="date:asc">Oldest</option>
-                            <option value="name:asc">Title A–Z</option>
-                            <option value="name:desc">Title Z–A</option>
-                        </select>
-                    </label>
-                    <button type="button" id="clearSort" class="toolbar-btn" title="Reset sort to most seeds">Clear sort</button>
+                <div class="dropdown-panel sort-panel" id="sortPanel" hidden>
+                    <div class="sort-rows" id="sortRows" role="group" aria-label="Sort order"></div>
+                    <div class="sort-actions">
+                        <button type="button" id="sortAddRow" class="toolbar-btn sort-add" title="Add another sort level" aria-label="Add another sort level">
+                            <span class="fa-solid fa-plus" aria-hidden="true"></span> Then by
+                        </button>
+                        <button type="button" id="clearSort" class="toolbar-btn" title="Reset sort to most seeds">Clear sort</button>
+                    </div>
                 </div>
             </div>
 
@@ -134,6 +113,166 @@
                 } catch (e) {}
                 render();
             });
+            render();
+        })();
+
+        // Sort panel: each level is a segmented field picker (Name, Size,
+        // Seeds, Age) plus a direction toggle. State lives here so it
+        // survives new searches; the results fragment (query.html) reads it
+        // via window.anorakSort and subscribes to changes.
+        (() => {
+            const rowsEl = document.getElementById('sortRows');
+            const addBtn = document.getElementById('sortAddRow');
+            const clearBtn = document.getElementById('clearSort');
+            if (!rowsEl || !addBtn) return;
+
+            const FIELDS = [
+                { key: 'name', label: 'Name', icon: 'fa-font', def: 'asc', asc: 'A–Z', desc: 'Z–A' },
+                { key: 'size', label: 'Size', icon: 'fa-weight-hanging', def: 'desc', asc: 'Smallest first', desc: 'Largest first' },
+                { key: 'seeders', label: 'Seeds', icon: 'fa-seedling', def: 'desc', asc: 'Fewest seeds first', desc: 'Most seeds first' },
+                { key: 'date', label: 'Age', icon: 'fa-clock', def: 'desc', asc: 'Oldest first', desc: 'Newest first' },
+            ];
+            const byKey = Object.fromEntries(FIELDS.map(f => [f.key, f]));
+            const DEFAULT = [{ key: 'seeders', dir: 'desc' }];
+            const MAX = FIELDS.length;
+
+            let specs = DEFAULT.map(s => ({ ...s }));
+            const listeners = new Set();
+
+            const isDefault = () =>
+                specs.length === DEFAULT.length &&
+                specs.every((s, i) => s.key === DEFAULT[i].key && s.dir === DEFAULT[i].dir);
+
+            const describe = (key, dir) => byKey[key][dir];
+
+            // Put `key` at level `index`; if a later level already used it,
+            // that level takes over the field this level had (no duplicates).
+            const assign = (index, key, dir) => {
+                const prev = specs[index];
+                const dup = specs.findIndex((s, i) => i !== index && s.key === key);
+                if (dup !== -1 && prev) specs[dup] = { key: prev.key, dir: prev.dir };
+                specs[index] = { key, dir: dir || byKey[key].def };
+            };
+
+            const rowEls = [];
+            const buildRow = () => {
+                const row = document.createElement('div');
+                row.className = 'sort-row';
+                row.innerHTML = `
+                    <span class="sort-row-label"></span>
+                    <div class="sort-row-controls">
+                        <div class="sort-fields" role="group">
+                            ${FIELDS.map(f => `<button type="button" class="sort-field" data-key="${f.key}" aria-label="${f.label}" aria-pressed="false"><span class="fa-solid ${f.icon}" aria-hidden="true"></span></button>`).join('')}
+                        </div>
+                        <button type="button" class="sort-dir"><span class="sort-dir-icon" aria-hidden="true"></span></button>
+                        <button type="button" class="sort-remove"><span class="fa-solid fa-xmark" aria-hidden="true"></span></button>
+                    </div>`;
+                return row;
+            };
+
+            const render = () => {
+                while (rowEls.length < specs.length) {
+                    const row = buildRow();
+                    rowsEl.appendChild(row);
+                    rowEls.push(row);
+                }
+                while (rowEls.length > specs.length) rowEls.pop().remove();
+
+                specs.forEach((spec, i) => {
+                    const row = rowEls[i];
+                    const level = i + 1;
+                    const verb = i === 0 ? 'Sort by' : 'Then by';
+                    row.dataset.index = String(i);
+                    row.querySelector('.sort-row-label').textContent = verb;
+                    row.querySelector('.sort-fields').setAttribute('aria-label', `${verb} (level ${level})`);
+                    const usedAbove = new Set(specs.slice(0, i).map(s => s.key));
+                    row.querySelectorAll('.sort-field').forEach(btn => {
+                        const f = byKey[btn.dataset.key];
+                        const active = spec.key === f.key;
+                        const used = usedAbove.has(f.key);
+                        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+                        btn.classList.toggle('active', active);
+                        btn.disabled = used;
+                        btn.title = used ? `${f.label} (already used above)` : `${verb} ${f.label}`;
+                    });
+                    const dirBtn = row.querySelector('.sort-dir');
+                    const other = spec.dir === 'asc' ? 'desc' : 'asc';
+                    const now = describe(spec.key, spec.dir);
+                    dirBtn.dataset.dir = spec.dir;
+                    dirBtn.title = `${now} — click for ${describe(spec.key, other)}`;
+                    dirBtn.setAttribute('aria-label', `${byKey[spec.key].label}: ${now}, ${spec.dir === 'asc' ? 'ascending' : 'descending'}. Click to reverse.`);
+                    const icon = row.querySelector('.sort-dir-icon');
+                    const cls = `fa-solid ${spec.dir === 'asc' ? 'fa-arrow-up' : 'fa-arrow-down'}`;
+                    if (icon.dataset.cls !== cls) {
+                        icon.dataset.cls = cls;
+                        icon.innerHTML = `<span class="${cls}"></span>`;
+                    }
+                    const rm = row.querySelector('.sort-remove');
+                    rm.hidden = i === 0;
+                    rm.title = 'Remove this sort level';
+                    rm.setAttribute('aria-label', `Remove sort level ${level} (${byKey[spec.key].label})`);
+                });
+
+                addBtn.disabled = specs.length >= MAX;
+                addBtn.title = addBtn.disabled ? 'All fields are already used' : 'Add another sort level';
+            };
+
+            const changed = () => {
+                render();
+                listeners.forEach(fn => { try { fn(); } catch (err) { console.error(err); } });
+            };
+
+            rowsEl.addEventListener('click', (e) => {
+                const btn = e.target instanceof Element ? e.target.closest('button') : null;
+                if (!btn || btn.disabled || !rowsEl.contains(btn)) return;
+                const row = btn.closest('.sort-row');
+                const i = Number(row?.dataset.index);
+                if (!Number.isInteger(i) || !specs[i]) return;
+                if (btn.classList.contains('sort-field')) {
+                    if (specs[i].key === btn.dataset.key) return;
+                    assign(i, btn.dataset.key);
+                    changed();
+                } else if (btn.classList.contains('sort-dir')) {
+                    specs[i].dir = specs[i].dir === 'asc' ? 'desc' : 'asc';
+                    changed();
+                } else if (btn.classList.contains('sort-remove') && i > 0) {
+                    specs.splice(i, 1);
+                    changed();
+                    // Keep keyboard focus inside the panel.
+                    const next = rowEls[i]?.querySelector('.sort-remove') || rowEls[i - 1]?.querySelector('.sort-remove:not([hidden])');
+                    (next || addBtn).focus();
+                }
+            });
+
+            addBtn.addEventListener('click', () => {
+                if (specs.length >= MAX) return;
+                const used = new Set(specs.map(s => s.key));
+                const f = FIELDS.find(x => !used.has(x.key));
+                if (!f) return;
+                specs.push({ key: f.key, dir: f.def });
+                changed();
+                if (addBtn.disabled) rowEls[rowEls.length - 1].querySelector('.sort-dir').focus();
+            });
+
+            clearBtn?.addEventListener('click', () => {
+                specs = DEFAULT.map(s => ({ ...s }));
+                changed();
+            });
+
+            window.anorakSort = {
+                fields: FIELDS,
+                get: () => specs.map(s => ({ ...s })),
+                isDefault,
+                defaultDir: (key) => byKey[key]?.def || 'desc',
+                // Column header clicks drive level 1.
+                setPrimary: (key, dir) => {
+                    if (!byKey[key]) return;
+                    assign(0, key, dir);
+                    changed();
+                },
+                subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+            };
+
             render();
         })();
 
@@ -207,8 +346,11 @@
             });
 
             document.addEventListener('click', (e) => {
-                if (!(e.target instanceof Element)) return;
-                if (e.target.closest('.search-dropdown')) return;
+                // Use the path captured at dispatch: a sort control may have
+                // removed itself from the DOM (e.g. a row's remove button).
+                const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+                if (path.some(n => n instanceof Element && n.classList.contains('search-dropdown'))) return;
+                if (e.target instanceof Element && e.target.closest('.search-dropdown')) return;
                 closeDropdowns();
             });
 
