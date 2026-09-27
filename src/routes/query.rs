@@ -1,5 +1,6 @@
 use crate::app_error::AppError;
 use crate::config::CONFIG;
+use crate::lodestarr;
 use crate::models;
 use crate::utils;
 use crate::ENV;
@@ -14,38 +15,36 @@ use serde_xml_rs::from_str;
 
 #[debug_handler]
 pub async fn endpoint(Form(payload): Form<models::Query>) -> Result<impl IntoResponse, AppError> {
-    info!("{}", &payload.search_term);
-    let items = gather_items_json(&payload.search_term).await?;
-    let tmpl = ENV.get_template("query.html")?;
-    let result = Html(tmpl.render(context!(items => items))?);
-    Ok(result)
-}
-
-async fn gather_items_json(search_query: &str) -> Result<Value> {
-    let contents = query_jackett(search_query).await?;
-    let mut items: Vec<models::Item> = process_xml(&contents).unwrap_or_default();
-    let known_torrents = request_rqbit_known_torrents().await;
-
-    // Default sort: highest seeders first, then peers.
-    items.sort_by(|a, b| {
-        b.seeders
-            .cmp(&a.seeders)
-            .then_with(|| b.peers.cmp(&a.peers))
-    });
-
-    let contexts: Value = items
+    info!("{} (sources: {})", &payload.search_term, display_sources(&payload.indexers));
+    let filter = SearchFilter::from_query(&payload);
+    let gathered = gather_items(&payload.search_term, &filter).await?;
+    let items: Value = gathered
+        .items
         .iter()
         .map(|it| {
-            let magnet = it.magnet_link();
-            let category = models::prefer_torznab_category(&it.category)
-                .map(|c| c.to_string())
-                .unwrap_or_default();
+            let display = it.display_category();
+            let category_name = display.map(models::category_name).unwrap_or_default();
+            let category_title = match (display, it.category_inferred) {
+                (Some(_), true) => format!(
+                    "{category_name} (inferred: {} only lists this category)",
+                    it.sources.join(", ")
+                ),
+                (Some(id), false) => format!("{category_name} ({id})"),
+                (None, _) => String::new(),
+            };
             context! {
-                already_added => known_torrents.iter().any(|t| t.contains(&it.title)),
+                already_added => gathered.is_known(it),
                 title => it.title,
                 guid => it.guid,
-                magnet => magnet,
-                category => category,
+                magnet => it.magnet_link(),
+                torrent => it.torrent_url(),
+                category => it.grab_category(),
+                category_name => category_name,
+                category_title => category_title,
+                category_group => models::category_group(display),
+                category_inferred => it.category_inferred,
+                sources => it.sources.join(", "),
+                source_ids => it.source_ids.join(" "),
                 seeders => it.seeders,
                 peers => it.peers,
                 pub_date => utils::format_date_unix(&it.pub_date),
@@ -56,7 +55,117 @@ async fn gather_items_json(search_query: &str) -> Result<Value> {
         })
         .collect::<Vec<_>>()
         .into();
-    Ok(contexts)
+    let tmpl = ENV.get_template("query.html")?;
+    let result = Html(tmpl.render(context!(
+        items => items,
+        failed_sources => gathered.failed_sources,
+    ))?);
+    Ok(result)
+}
+
+fn display_sources(indexers: &str) -> &str {
+    if indexers.trim().is_empty() {
+        "all"
+    } else {
+        indexers
+    }
+}
+
+/// What to search: which sources (None = every enabled one) and which
+/// category group to keep (None = all).
+pub(crate) struct SearchFilter {
+    pub indexers: Option<Vec<String>>,
+    pub cat: Option<String>,
+}
+
+impl SearchFilter {
+    pub fn from_query(query: &models::Query) -> Self {
+        let ids: Vec<String> = query
+            .indexers
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+        let cat = query.cat.trim().to_ascii_lowercase();
+        SearchFilter {
+            indexers: (!ids.is_empty()).then_some(ids),
+            cat: (!cat.is_empty() && cat != "all").then_some(cat),
+        }
+    }
+}
+
+/// Search results in the default order (seeders desc, then peers desc), plus
+/// the names rqbit already knows about. Shared by the HTML fragment
+/// (`POST /query/`) and the JSON API (`/api/query`).
+pub(crate) struct Gathered {
+    pub items: Vec<models::Item>,
+    pub known_torrents: Vec<String>,
+    /// Results came from Lodestarr's native per-source search (source-tagged).
+    pub native: bool,
+    pub failed_sources: Vec<String>,
+}
+
+impl Gathered {
+    pub fn is_known(&self, item: &models::Item) -> bool {
+        self.known_torrents.iter().any(|t| t.contains(&item.title))
+    }
+}
+
+pub(crate) async fn gather_items(search_query: &str, filter: &SearchFilter) -> Result<Gathered> {
+    let enabled: Vec<lodestarr::Indexer> = lodestarr::indexers()
+        .await
+        .into_iter()
+        .filter(|i| i.enabled)
+        .collect();
+
+    let mut native = false;
+    let mut failed_sources = Vec::new();
+    let mut items: Option<Vec<models::Item>> = None;
+    if !enabled.is_empty() {
+        let chosen: Vec<lodestarr::Indexer> = match &filter.indexers {
+            None => enabled,
+            Some(ids) => enabled.into_iter().filter(|i| ids.contains(&i.id)).collect(),
+        };
+        let (found, failed) = lodestarr::search(search_query, &chosen).await;
+        // If every source failed on an unfiltered search, the native API is
+        // probably broken: fall back to the Torznab feed rather than show
+        // nothing. A hand-picked subset is honoured (and its failures shown)
+        // because the Torznab feed would bring back unchecked sources.
+        if chosen.is_empty() || failed.len() < chosen.len() || filter.indexers.is_some() {
+            native = true;
+            failed_sources = failed;
+            items = Some(found);
+        } else {
+            warn!("every source failed in the native search; falling back to Torznab");
+        }
+    }
+    let mut items = match items {
+        Some(items) => items,
+        None => {
+            let contents = query_jackett(search_query).await?;
+            process_xml(&contents).unwrap_or_default()
+        }
+    };
+
+    if let Some(cat) = &filter.cat {
+        items.retain(|it| models::category_group(it.display_category()) == cat.as_str());
+    }
+
+    let known_torrents = request_rqbit_known_torrents().await;
+
+    // Default sort: highest seeders first, then peers.
+    items.sort_by(|a, b| {
+        b.seeders
+            .cmp(&a.seeders)
+            .then_with(|| b.peers.cmp(&a.peers))
+    });
+
+    Ok(Gathered {
+        items,
+        known_torrents,
+        native,
+        failed_sources,
+    })
 }
 
 async fn request_rqbit_known_torrents() -> Vec<String> {

@@ -1,6 +1,8 @@
 mod config;
+mod lodestarr;
 mod models;
 mod routes;
+mod torrent_files;
 mod utils;
 
 mod app_error;
@@ -9,7 +11,7 @@ use axum::{
     http::{header, HeaderValue},
     middleware::{map_request, map_response},
     response::Response,
-    routing::post,
+    routing::{get, post},
     Router,
 };
 use log::info;
@@ -32,6 +34,12 @@ pub async fn main() {
 
     let app = Router::new()
         .route("/query/", post(routes::query::endpoint))
+        .route(
+            "/api/query",
+            get(routes::api::query_get).post(routes::api::query_post),
+        )
+        .route("/api/indexers", get(routes::api::indexers))
+        .route("/api/files", get(routes::api::files))
         .route("/send-to-rqbit/", post(routes::send_to_rqbit::endpoint))
         .nest_service("/", ServeDir::new("assets"))
         .layer(map_request(strip_conditional_headers))
