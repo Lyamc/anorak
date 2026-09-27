@@ -464,6 +464,123 @@ a {
     color: var(--text);
 }
 
+/* Sort panel: one row per sort level. Each row is a segmented field
+   picker (Name / Size / Seeds / Age), a direction toggle and, for levels
+   after the first, a remove button. */
+.sort-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sort-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sort-row-label {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.sort-row-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.sort-fields {
+    display: inline-flex;
+}
+
+.sort-field,
+.sort-dir,
+.sort-remove {
+    font-family: Arial, Helvetica, sans-serif;
+    height: 32px;
+    min-width: 40px;
+    padding: 0 10px;
+    border: 2px solid var(--panel-border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+    cursor: pointer;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sort-field {
+    border-radius: 0;
+    margin-left: -2px;
+    position: relative;
+}
+
+.sort-field:first-child {
+    margin-left: 0;
+    border-radius: 4px 0 0 4px;
+}
+
+.sort-field:last-child {
+    border-radius: 0 4px 4px 0;
+}
+
+.sort-field:hover:not(:disabled):not(.active),
+.sort-dir:hover,
+.sort-remove:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
+    z-index: 1;
+}
+
+.sort-field.active {
+    background: var(--primary-bg);
+    border-color: var(--primary-bg);
+    color: var(--primary-text);
+    z-index: 2;
+}
+
+.sort-field:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.sort-dir {
+    border-color: var(--border-strong);
+    border-radius: 4px;
+}
+
+.sort-remove {
+    margin-left: auto;
+    min-width: 32px;
+    padding: 0 8px;
+    border-radius: 4px;
+    background: transparent;
+    border-color: transparent;
+}
+
+.sort-field:focus-visible,
+.sort-dir:focus-visible,
+.sort-remove:focus-visible,
+.sort-actions .toolbar-btn:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+    z-index: 3;
+}
+
+.sort-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.sort-add .fa-plus {
+    margin-right: 2px;
+}
+
 @media (max-width: 720px) {
     #mainContent table {
         min-width: 520px;
