@@ -13,7 +13,7 @@
             document.documentElement.setAttribute('data-theme', t === 'light' || t === 'dark' ? t : 'system');
         })();
     </script>
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
     <script src="https://unpkg.com/htmx.org@1.9.4/dist/htmx.min.js"></script>
     <script src="https://kit.fontawesome.com/48f6fc2f0a.js" crossorigin="anonymous" async></script>
 </head>
@@ -25,7 +25,31 @@
                 <div class="search">
                     <input type="text" placeholder="search..." id="search_term" name="search_term" autofocus>
                 </div>
+                <!-- Chosen sources (comma list); empty = every source. -->
+                <input type="hidden" name="indexers" id="indexersInput" value="">
             </form>
+
+            <div class="search-dropdown" id="sourcesDropdown">
+                <button type="button" class="dropdown-toggle" id="sourcesToggle" aria-haspopup="true" aria-expanded="false" disabled title="Loading sources…">
+                    Sources
+                    <span class="sources-summary" id="sourcesSummary"></span>
+                    <span class="active-dot" id="sourcesDot" hidden></span>
+                </button>
+                <div class="dropdown-panel sources-panel" id="sourcesPanel" hidden>
+                    <div class="sources-head">
+                        <span class="sources-title">Search these sources</span>
+                        <span class="sources-bulk">
+                            <button type="button" class="link-btn" id="sourcesAll">All</button>
+                            <button type="button" class="link-btn" id="sourcesNone">None</button>
+                        </span>
+                    </div>
+                    <div class="sources-list" id="sourcesList" role="group" aria-label="Sources"></div>
+                    <div class="sources-note" id="sourcesNote" role="status" hidden>
+                        <span id="sourcesNoteText"></span>
+                        <button type="button" class="toolbar-btn" id="sourcesResearch">Search again</button>
+                    </div>
+                </div>
+            </div>
 
             <div class="search-dropdown" id="filterDropdown">
                 <button type="button" class="dropdown-toggle" id="filterToggle" aria-haspopup="true" aria-expanded="false" disabled>
@@ -36,6 +60,22 @@
                     <label class="toolbar-field grow">
                         <span>Name contains</span>
                         <input type="text" id="filterName" placeholder="filter title…" autocomplete="off">
+                    </label>
+                    <label class="toolbar-field grow">
+                        <span>Category</span>
+                        <select id="filterCategory">
+                            <option value="" data-label="All categories">All categories</option>
+                            <option value="movies" data-label="Movies">Movies</option>
+                            <option value="tv" data-label="TV">TV</option>
+                            <option value="anime" data-label="Anime">Anime</option>
+                            <option value="music" data-label="Music">Music</option>
+                            <option value="books" data-label="Books">Books</option>
+                            <option value="games" data-label="Games">Games</option>
+                            <option value="software" data-label="Software">Software</option>
+                            <option value="xxx" data-label="XXX">XXX</option>
+                            <option value="other" data-label="Other">Other</option>
+                            <option value="unknown" data-label="Unknown (source gives none)">Unknown (source gives none)</option>
+                        </select>
                     </label>
                     <div class="dropdown-grid">
                         <label class="toolbar-field">
@@ -276,9 +316,259 @@
             render();
         })();
 
+        // Sources: which Lodestarr sources a search asks. The list comes from
+        // /api/indexers; the choice is remembered as the set of *unchecked*
+        // ids so a newly installed source starts checked. Unchecking hides
+        // that source's rows at once; checking one the last search skipped
+        // offers "Search again". The results fragment reads the state via
+        // window.anorakSources and subscribes to changes.
+        (() => {
+            const dropdown = document.getElementById('sourcesDropdown');
+            const toggle = document.getElementById('sourcesToggle');
+            const listEl = document.getElementById('sourcesList');
+            const dot = document.getElementById('sourcesDot');
+            const summary = document.getElementById('sourcesSummary');
+            const input = document.getElementById('indexersInput');
+            const note = document.getElementById('sourcesNote');
+            const noteText = document.getElementById('sourcesNoteText');
+            const research = document.getElementById('sourcesResearch');
+            const form = document.querySelector('.search-form');
+            const KEY = 'anorak-sources-off';
+            if (!dropdown || !toggle || !listEl || !input) return;
+
+            let list = [];
+            let off = new Set();
+            try { off = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); } catch (e) {}
+            let searched = null;   // ids asked by the last search (null = none yet)
+            let counts = null;     // id -> rows in the current results
+            const listeners = new Set();
+
+            const isChecked = (id) => !off.has(id);
+            const checkedIds = () => list.filter(s => isChecked(s.id)).map(s => s.id);
+            const allChecked = () => list.every(s => isChecked(s.id));
+            const noneChecked = () => list.length > 0 && list.every(s => !isChecked(s.id));
+            const nameOf = (id) => (list.find(s => s.id === id) || {}).name || id;
+
+            const save = () => {
+                try {
+                    // Only remember ids that still exist.
+                    const ids = list.length ? [...off].filter(id => list.some(s => s.id === id)) : [...off];
+                    if (ids.length) localStorage.setItem(KEY, JSON.stringify(ids));
+                    else localStorage.removeItem(KEY);
+                } catch (e) {}
+            };
+
+            const syncInput = () => {
+                input.value = !list.length || allChecked() ? '' : checkedIds().join(',');
+            };
+
+            const buildList = () => {
+                listEl.innerHTML = '';
+                list.forEach(s => {
+                    const label = document.createElement('label');
+                    label.className = 'source-option';
+                    label.dataset.id = s.id;
+                    label.innerHTML = '<input type="checkbox"><span class="source-name"></span><span class="source-count"></span>';
+                    label.querySelector('input').value = s.id;
+                    label.querySelector('.source-name').textContent = s.name;
+                    label.title = s.id;
+                    listEl.appendChild(label);
+                });
+            };
+
+            // Update in place so keyboard focus stays on the checkbox.
+            const render = () => {
+                const n = checkedIds().length;
+                listEl.querySelectorAll('.source-option').forEach(label => {
+                    const id = label.dataset.id;
+                    label.querySelector('input').checked = isChecked(id);
+                    const countEl = label.querySelector('.source-count');
+                    let text = '';
+                    let title = '';
+                    if (searched && !searched.has(id)) {
+                        text = 'not searched';
+                        title = 'Not part of the last search';
+                    } else if (counts) {
+                        const c = counts.get(id) || 0;
+                        text = String(c);
+                        title = `${c} result${c === 1 ? '' : 's'} in the last search`;
+                    }
+                    countEl.textContent = text;
+                    countEl.title = title;
+                    label.classList.toggle('unchecked', !isChecked(id));
+                });
+                const partial = list.length > 0 && !allChecked();
+                dot.hidden = !partial;
+                summary.textContent = partial ? `${n}/${list.length}` : '';
+                toggle.title = partial
+                    ? `Searching ${n} of ${list.length} sources`
+                    : (list.length ? `Searching all ${list.length} sources` : toggle.title);
+
+                const missing = searched ? checkedIds().filter(id => !searched.has(id)) : [];
+                if (noneChecked()) {
+                    noteText.textContent = 'No sources checked: nothing will be searched.';
+                    research.hidden = true;
+                    note.hidden = false;
+                } else if (missing.length && (document.getElementById('search_term')?.value || '').trim()) {
+                    const names = missing.map(nameOf).join(', ');
+                    noteText.textContent = `${names} ${missing.length === 1 ? 'was' : 'were'} not part of this search.`;
+                    research.hidden = false;
+                    note.hidden = false;
+                } else {
+                    note.hidden = true;
+                }
+            };
+
+            const changed = () => {
+                syncInput();
+                save();
+                render();
+                listeners.forEach(fn => { try { fn(); } catch (err) { console.error(err); } });
+            };
+
+            listEl.addEventListener('change', (e) => {
+                const cb = e.target;
+                if (!(cb instanceof HTMLInputElement)) return;
+                if (cb.checked) off.delete(cb.value); else off.add(cb.value);
+                changed();
+            });
+            document.getElementById('sourcesAll')?.addEventListener('click', () => {
+                off.clear();
+                changed();
+            });
+            document.getElementById('sourcesNone')?.addEventListener('click', () => {
+                list.forEach(s => off.add(s.id));
+                changed();
+            });
+            research?.addEventListener('click', () => {
+                if (form && window.htmx) htmx.trigger(form, 'submit');
+            });
+
+            // Registered before the Filter/Sort handler below, which skips
+            // cancelled requests.
+            document.body.addEventListener('htmx:beforeRequest', (e) => {
+                if (e.detail?.target?.id !== 'mainContent') return;
+                if (noneChecked()) {
+                    e.preventDefault();
+                    const main = document.getElementById('mainContent');
+                    if (main) {
+                        if (window.__anorakResultsCleanup) {
+                            window.__anorakResultsCleanup();
+                            window.__anorakResultsCleanup = null;
+                        }
+                        main.innerHTML = '<p class="sources-empty">No sources are checked. Open <b>Sources</b> and check at least one.</p>';
+                        ['filterToggle', 'sortToggle'].forEach(id => {
+                            const b = document.getElementById(id);
+                            if (b) b.disabled = true;
+                        });
+                    }
+                    return;
+                }
+                searched = new Set(list.length ? checkedIds() : []);
+                counts = null;
+                render();
+            });
+
+            window.anorakSources = {
+                get available() { return list.length > 0; },
+                get list() { return list.slice(); },
+                isChecked,
+                allChecked,
+                noneChecked,
+                // Called by the results fragment; null resets.
+                setCounts: (map) => { counts = map; render(); },
+                subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+            };
+
+            fetch('/api/indexers')
+                .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
+                .then(data => {
+                    if (!data || !data.available || !Array.isArray(data.indexers) || !data.indexers.length) {
+                        dropdown.hidden = true;
+                        return;
+                    }
+                    list = data.indexers.map(s => ({ id: String(s.id), name: String(s.name || s.id) }));
+                    buildList();
+                    toggle.disabled = false;
+                    syncInput();
+                    render();
+                    listeners.forEach(fn => { try { fn(); } catch (err) { console.error(err); } });
+                })
+                .catch(() => { dropdown.hidden = true; });
+        })();
+
         (() => {
             const main = document.querySelector('#mainContent');
             if (!main) return;
+
+            // File list for a result, fetched once when its name is expanded.
+            // /api/files reads the .torrent (or asks rqbit to resolve the
+            // magnet's metadata without adding it); nothing is downloaded.
+            const fmtBytes = (n) => {
+                n = Number(n) || 0;
+                const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+                let i = 0;
+                while (n >= 1024 && i < units.length - 1) { n /= 1024; i += 1; }
+                return `${i === 0 ? n : n.toFixed(n >= 100 ? 0 : (n >= 10 ? 1 : 2))} ${units[i]}`;
+            };
+            const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+            const renderFiles = (box, info) => {
+                const parts = [`<b>${plural(info.count, 'file')}</b>, ${fmtBytes(info.total)}`];
+                if (info.count > 1) {
+                    if (info.main_count === 1 && info.largest) {
+                        parts.push(`main file ${fmtBytes(info.largest.size)}`);
+                    } else if (info.main_count > 1) {
+                        parts.push(`${plural(info.main_count, 'main file')} ${fmtBytes(info.main_total)}` +
+                            (info.largest ? ` (largest ${fmtBytes(info.largest.size)})` : ''));
+                    }
+                    if (info.extras_count > 0) {
+                        parts.push(`<span class="muted">${info.extras_count} small extra${info.extras_count === 1 ? '' : 's'} ${fmtBytes(info.extras_total)}</span>`);
+                    }
+                }
+                let html = `<div class="file-summary">${parts.join(' · ')}</div>`;
+                const files = Array.isArray(info.files) ? info.files : [];
+                if (files.length > 1) {
+                    const more = info.count > files.length ? `<li class="muted">…and ${info.count - files.length} more</li>` : '';
+                    html += `<details class="file-list"><summary>Show files</summary><ol>${files.map(f =>
+                        `<li class="${f.extra ? 'extra' : ''}"><span class="file-path">${esc(f.path)}</span><span class="file-size">${fmtBytes(f.size)}</span></li>`).join('')}${more}</ol></details>`;
+                } else if (files.length === 1) {
+                    html += `<div class="file-single muted">${esc(files[0].path)}</div>`;
+                }
+                box.innerHTML = html;
+            };
+
+            const loadFiles = (cell) => {
+                const row = cell.closest('tr');
+                if (!row || cell.querySelector('.file-info')) return;
+                const box = document.createElement('div');
+                box.className = 'file-info';
+                cell.appendChild(box);
+                const magnet = row.dataset.magnet || '';
+                const torrent = row.dataset.torrent || '';
+                if (!magnet && !torrent) {
+                    box.innerHTML = '<span class="muted">File list unavailable: this result has no magnet or .torrent link.</span>';
+                    return;
+                }
+                box.innerHTML = '<span class="muted">Loading file list…</span>';
+                const params = new URLSearchParams({ magnet, torrent, indexer: (row.dataset.sources || '').split(' ')[0] || '' });
+                const ctrl = new AbortController();
+                const timer = setTimeout(() => ctrl.abort(), 50000);
+                fetch(`/api/files?${params}`, { signal: ctrl.signal })
+                    .then(async r => {
+                        const data = await r.json().catch(() => ({}));
+                        if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+                        return data;
+                    })
+                    .then(info => { if (box.isConnected) renderFiles(box, info); })
+                    .catch(err => {
+                        if (!box.isConnected) return;
+                        const msg = err.name === 'AbortError' ? 'timed out (no peers answered)' : err.message;
+                        box.innerHTML = `<span class="muted">File list unavailable: ${esc(msg)}</span> <button type="button" class="link-btn file-retry">Retry</button>`;
+                    })
+                    .finally(() => clearTimeout(timer));
+            };
 
             let expandedCell = null;
             document.body.addEventListener('click', (event) => {
@@ -286,45 +576,55 @@
                 const cell = target?.closest('#mainContent td.name');
                 if (!cell || !main.contains(cell)) return;
 
+                // Clicks inside the file list (details, text selection) keep
+                // the row open; Retry refetches.
+                const info = target.closest('.file-info');
+                if (info) {
+                    if (target.closest('.file-retry')) {
+                        info.remove();
+                        loadFiles(cell);
+                    }
+                    return;
+                }
+
                 if (expandedCell && expandedCell !== cell) {
                     expandedCell.classList.remove('expanded');
                 }
 
                 if (cell.classList.toggle('expanded')) {
                     expandedCell = cell;
+                    loadFiles(cell);
                 } else {
                     expandedCell = null;
                 }
             });
 
-            const filterToggle = document.getElementById('filterToggle');
-            const sortToggle = document.getElementById('sortToggle');
-            const filterPanel = document.getElementById('filterPanel');
-            const sortPanel = document.getElementById('sortPanel');
-            const filterDropdown = document.getElementById('filterDropdown');
-            const sortDropdown = document.getElementById('sortDropdown');
+            const dropdowns = ['sources', 'filter', 'sort'].map(name => ({
+                name,
+                root: document.getElementById(`${name}Dropdown`),
+                toggle: document.getElementById(`${name}Toggle`),
+                panel: document.getElementById(`${name}Panel`),
+            })).filter(d => d.root && d.toggle && d.panel);
+            const byName = (name) => dropdowns.find(d => d.name === name);
+            const filterToggle = byName('filter')?.toggle;
+            const sortToggle = byName('sort')?.toggle;
 
             const closeDropdowns = () => {
-                filterPanel.hidden = true;
-                sortPanel.hidden = true;
-                filterToggle.setAttribute('aria-expanded', 'false');
-                sortToggle.setAttribute('aria-expanded', 'false');
-                filterDropdown.classList.remove('open');
-                sortDropdown.classList.remove('open');
+                dropdowns.forEach(d => {
+                    d.panel.hidden = true;
+                    d.toggle.setAttribute('aria-expanded', 'false');
+                    d.root.classList.remove('open');
+                });
             };
 
-            const toggleDropdown = (which) => {
-                const openingFilter = which === 'filter' && filterPanel.hidden;
-                const openingSort = which === 'sort' && sortPanel.hidden;
+            const toggleDropdown = (name) => {
+                const d = byName(name);
+                const opening = d && d.panel.hidden;
                 closeDropdowns();
-                if (openingFilter) {
-                    filterPanel.hidden = false;
-                    filterToggle.setAttribute('aria-expanded', 'true');
-                    filterDropdown.classList.add('open');
-                } else if (openingSort) {
-                    sortPanel.hidden = false;
-                    sortToggle.setAttribute('aria-expanded', 'true');
-                    sortDropdown.classList.add('open');
+                if (opening) {
+                    d.panel.hidden = false;
+                    d.toggle.setAttribute('aria-expanded', 'true');
+                    d.root.classList.add('open');
                 }
             };
 
@@ -334,15 +634,12 @@
             window.__anorakCloseDropdowns = closeDropdowns;
             window.addEventListener('pageshow', closeDropdowns);
 
-            filterToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (filterToggle.disabled) return;
-                toggleDropdown('filter');
-            });
-            sortToggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                if (sortToggle.disabled) return;
-                toggleDropdown('sort');
+            dropdowns.forEach(d => {
+                d.toggle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (d.toggle.disabled) return;
+                    toggleDropdown(d.name);
+                });
             });
 
             document.addEventListener('click', (e) => {
@@ -360,10 +657,11 @@
 
             // Disable Filter/Sort while a new search is in flight
             document.body.addEventListener('htmx:beforeRequest', (e) => {
+                if (e.defaultPrevented) return;
                 if (e.detail?.target?.id === 'mainContent') {
                     closeDropdowns();
-                    filterToggle.disabled = true;
-                    sortToggle.disabled = true;
+                    if (filterToggle) filterToggle.disabled = true;
+                    if (sortToggle) sortToggle.disabled = true;
                 }
             });
 

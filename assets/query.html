@@ -1,3 +1,7 @@
+{% if failed_sources is defined and failed_sources|length > 0 %}
+<p class="failed-sources" role="status"><span class="fa-solid fa-triangle-exclamation" aria-hidden="true"></span>
+    No answer from {{ failed_sources|join(", ") }}; results from {% if failed_sources|length == 1 %}that source{% else %}those sources{% endif %} are missing.</p>
+{% endif %}
 {% if items is defined and items|length > 0 %}
 <div class="results-toolbar" id="resultsToolbar">
     <div class="toolbar-row actions">
@@ -19,6 +23,8 @@
             <th class="seeders" data-sort-key="seeders" data-sort-type="number">S/P</th>
             <th class="size" data-sort-key="size" data-sort-type="number">Size</th>
             <th class="date" data-sort-key="date" data-sort-type="date">Date</th>
+            <th class="category no-sort">Category</th>
+            <th class="source no-sort">Source</th>
             <th class="no-sort"></th>
         </tr>
     </thead>
@@ -29,14 +35,17 @@
             data-size="{{ item.size }}"
             data-date="{{ item.pub_date }}"
             data-magnet="{{ item.magnet }}"
-            data-category="{{ item.category }}">
+            data-torrent="{{ item.torrent }}"
+            data-category="{{ item.category }}"
+            data-catgroup="{{ item.category_group }}"
+            data-sources="{{ item.source_ids }}">
             <td class="select">
                 {% if not item.already_added and item.magnet %}
                 <input type="checkbox" class="row-select" aria-label="Select {{ item.title }}">
                 {% endif %}
             </td>
             <td class="name" title="{{ item.title }}">
-                {{ item.title }}
+                <span class="name-text">{{ item.title }}</span>
             </td>
             <td class="seeders" data-sort="{{ item.seeders }}">
                 {{ item.seeders }} / {{ item.peers }}
@@ -46,6 +55,16 @@
             </td>
             <td class="date" data-sort="{{ item.pub_date }}">
                 {{ item.pub_date_format }}
+            </td>
+            <td class="category">
+                {% if item.category_name %}
+                <span class="cat-badge cat-{{ item.category_group }}{% if item.category_inferred %} inferred{% endif %}" title="{{ item.category_title }}">{{ item.category_name }}</span>
+                {% else %}
+                <span class="muted" title="The source did not give a category">—</span>
+                {% endif %}
+            </td>
+            <td class="source">
+                {% if item.sources %}{{ item.sources }}{% else %}<span class="muted" title="Source not reported">—</span>{% endif %}
             </td>
             <td class="center grab-cell">
                 {% if item.already_added %}
@@ -82,7 +101,24 @@
     const filterMinSeeds = document.getElementById('filterMinSeeds');
     const filterMinSize = document.getElementById('filterMinSize');
     const filterMaxSize = document.getElementById('filterMaxSize');
+    const filterCategory = document.getElementById('filterCategory');
     const clearFilters = document.getElementById('clearFilters');
+    const sourcesApi = window.anorakSources;
+
+    // Category option labels get "(n)" counts for the current results.
+    const setCategoryCounts = (counts) => {
+        if (!filterCategory) return;
+        let total = 0;
+        if (counts) counts.forEach(n => { total += n; });
+        Array.from(filterCategory.options).forEach(opt => {
+            const label = opt.dataset.label || opt.textContent;
+            if (!counts) { opt.textContent = label; opt.disabled = false; return; }
+            const n = opt.value === '' ? total : (counts.get(opt.value) || 0);
+            opt.textContent = `${label} (${n})`;
+            // Keep the current choice selectable even when it has no rows.
+            opt.disabled = n === 0 && opt.value !== '' && opt.value !== filterCategory.value;
+        });
+    };
 
     // Tear down prior results handlers (new search replaces #mainContent)
     if (window.__anorakResultsCleanup) {
@@ -91,6 +127,8 @@
     }
 
     if (!table) {
+        setCategoryCounts(null);
+        if (sourcesApi) sourcesApi.setCounts(new Map());
         if (window.__anorakCloseDropdowns) window.__anorakCloseDropdowns();
         if (filterToggle) filterToggle.disabled = true;
         if (sortToggle) sortToggle.disabled = true;
@@ -153,6 +191,7 @@
     const updateActiveDots = () => {
         const filtersActive = !!(
             (filterName?.value || '').trim() ||
+            (filterCategory?.value || '') !== '' ||
             filterMinSeeds?.value !== '' ||
             filterMinSize?.value !== '' ||
             filterMaxSize?.value !== ''
@@ -190,6 +229,13 @@
         const maxMb = filterMaxSize?.value === '' ? null : Number(filterMaxSize.value);
         const minBytes = minMb == null || Number.isNaN(minMb) ? null : minMb * 1024 * 1024;
         const maxBytes = maxMb == null || Number.isNaN(maxMb) ? null : maxMb * 1024 * 1024;
+        const cat = filterCategory?.value || '';
+        const sourceOk = (row) => {
+            if (!sourcesApi || !sourcesApi.available) return true;
+            const ids = (row.dataset.sources || '').split(' ').filter(Boolean);
+            // Rows without a source (Torznab fallback) always show.
+            return !ids.length || ids.some(id => sourcesApi.isChecked(id));
+        };
 
         allRows().forEach(row => {
             const name = (row.dataset.name || '').toLowerCase();
@@ -200,6 +246,8 @@
             if (minSeeds != null && !Number.isNaN(minSeeds) && seeds < minSeeds) ok = false;
             if (minBytes != null && size < minBytes) ok = false;
             if (maxBytes != null && size > maxBytes) ok = false;
+            if (cat && (row.dataset.catgroup || 'unknown') !== cat) ok = false;
+            if (ok && !sourceOk(row)) ok = false;
             row.style.display = ok ? '' : 'none';
             if (!ok) {
                 const cb = row.querySelector('.row-select');
@@ -250,8 +298,13 @@
     [filterName, filterMinSeeds, filterMinSize, filterMaxSize].forEach(el => {
         on(el, 'input', applyFilters);
     });
+    on(filterCategory, 'change', () => {
+        applyFilters();
+        setCategoryCounts(categoryCounts);
+    });
     on(clearFilters, 'click', () => {
         if (filterName) filterName.value = '';
+        if (filterCategory) filterCategory.value = '';
         if (filterMinSeeds) filterMinSeeds.value = '';
         if (filterMinSize) filterMinSize.value = '';
         if (filterMaxSize) filterMaxSize.value = '';
@@ -318,9 +371,26 @@
         }
     });
 
+    // Unchecking a source hides its rows right away (no new search).
+    const unsubscribeSources = sourcesApi ? sourcesApi.subscribe(applyFilters) : null;
+
+    // Per-source and per-category counts for the whole result set.
+    const sourceCounts = new Map();
+    const categoryCounts = new Map();
+    allRows().forEach(row => {
+        (row.dataset.sources || '').split(' ').filter(Boolean).forEach(id => {
+            sourceCounts.set(id, (sourceCounts.get(id) || 0) + 1);
+        });
+        const g = row.dataset.catgroup || 'unknown';
+        categoryCounts.set(g, (categoryCounts.get(g) || 0) + 1);
+    });
+    if (sourcesApi) sourcesApi.setCounts(sourceCounts);
+    setCategoryCounts(categoryCounts);
+
     window.__anorakResultsCleanup = () => {
         listeners.forEach(([el, event, handler]) => el.removeEventListener(event, handler));
         if (unsubscribeSort) unsubscribeSort();
+        if (unsubscribeSources) unsubscribeSources();
     };
 
     applySort();

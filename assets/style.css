@@ -237,7 +237,7 @@ a {
 
 #mainContent table {
     width: 100%;
-    min-width: 640px;
+    min-width: 860px;
     border-collapse: collapse;
     table-layout: auto;
 }
@@ -313,6 +313,25 @@ a {
 #mainContent td.date {
     width: 160px;
     white-space: nowrap;
+}
+
+#mainContent th.category,
+#mainContent td.category {
+    width: 110px;
+    white-space: nowrap;
+}
+
+#mainContent th.source,
+#mainContent td.source {
+    width: 130px;
+    max-width: 160px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#mainContent td.source {
+    font-size: 13px;
 }
 
 #mainContent th.select,
@@ -583,7 +602,7 @@ a {
 
 @media (max-width: 720px) {
     #mainContent table {
-        min-width: 520px;
+        min-width: 720px;
     }
 
     #mainContent th.name,
@@ -599,4 +618,214 @@ a {
     .dropdown-panel {
         min-width: 260px;
     }
+}
+
+/* Sources dropdown: one checkbox per Lodestarr source. */
+.sources-panel {
+    left: 0;
+    right: auto;
+}
+
+.sources-summary {
+    font-weight: normal;
+    font-size: 12px;
+    margin-left: 2px;
+    color: var(--muted);
+}
+
+.sources-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: bold;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+.sources-bulk {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.link-btn {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    background: none;
+    border: none;
+    padding: 2px 4px;
+    color: var(--link);
+    cursor: pointer;
+    text-decoration: underline;
+    border-radius: 3px;
+}
+
+.link-btn:hover {
+    background: var(--surface-hover);
+}
+
+.sources-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.source-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: var(--surface);
+    border: 1px solid var(--panel-border);
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.source-option:hover {
+    border-color: var(--border-strong);
+}
+
+.source-option input {
+    margin: 0;
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary-bg);
+    cursor: pointer;
+}
+
+.source-option.unchecked .source-name {
+    color: var(--muted);
+}
+
+.source-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.source-count {
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.sources-note {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 13px;
+}
+
+.sources-note[hidden] {
+    display: none;
+}
+
+.sources-empty,
+.failed-sources {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    color: var(--text);
+}
+
+.failed-sources {
+    margin: 4px 0 8px;
+    padding: 8px 10px;
+    border: 1px solid var(--panel-border);
+    border-radius: 4px;
+    background: var(--surface);
+}
+
+.failed-sources .fa-triangle-exclamation {
+    margin-right: 4px;
+}
+
+/* Category badges. Inferred categories (the source only lists one) are
+   italic with a dashed border. */
+.cat-badge {
+    display: inline-block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    padding: 2px 7px;
+    border-radius: 10px;
+    border: 1px solid var(--panel-border);
+    background: var(--accent-bg);
+    color: var(--text);
+    font-size: 12px;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.cat-badge.inferred {
+    font-style: italic;
+    border-style: dashed;
+    background: transparent;
+}
+
+/* File list under an expanded name. */
+#mainContent td.name:not(.expanded) .file-info {
+    display: none;
+}
+
+.file-info {
+    margin-top: 6px;
+    padding: 6px 8px;
+    border-left: 3px solid var(--border-strong);
+    background: var(--surface);
+    border-radius: 0 4px 4px 0;
+    font-size: 13px;
+    cursor: auto;
+}
+
+.file-summary b {
+    font-weight: bold;
+}
+
+.file-single {
+    margin-top: 2px;
+    font-size: 12px;
+}
+
+.file-list {
+    margin-top: 4px;
+}
+
+.file-list summary {
+    cursor: pointer;
+    color: var(--link);
+    font-size: 12px;
+}
+
+.file-list ol {
+    margin: 4px 0 0;
+    padding-left: 22px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.file-list li {
+    padding: 1px 0;
+}
+
+.file-list li > span {
+    display: inline;
+}
+
+.file-list .file-size {
+    margin-left: 8px;
+    color: var(--muted);
+    white-space: nowrap;
+}
+
+.file-list li.extra,
+.file-list li.extra .file-size {
+    color: var(--muted);
+    font-size: 12px;
 }
