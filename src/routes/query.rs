@@ -32,11 +32,13 @@ pub async fn endpoint(Form(payload): Form<models::Query>) -> Result<impl IntoRes
                 (Some(id), false) => format!("{category_name} ({id})"),
                 (None, _) => String::new(),
             };
+            let magnet = it.magnet_link();
             context! {
                 already_added => gathered.is_known(it),
+                is_magnet => magnet.to_ascii_lowercase().starts_with("magnet:"),
                 title => it.title,
                 guid => it.guid,
-                magnet => it.magnet_link(),
+                magnet => magnet,
                 torrent => it.torrent_url(),
                 category => it.grab_category(),
                 category_name => category_name,
@@ -55,10 +57,12 @@ pub async fn endpoint(Form(payload): Form<models::Query>) -> Result<impl IntoRes
         })
         .collect::<Vec<_>>()
         .into();
+    let client_name = crate::client::name().await;
     let tmpl = ENV.get_template("query.html")?;
     let result = Html(tmpl.render(context!(
         items => items,
         failed_sources => gathered.failed_sources,
+        client_name => client_name,
     ))?);
     Ok(result)
 }

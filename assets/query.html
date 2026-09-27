@@ -7,13 +7,13 @@
     <div class="toolbar-row actions">
         <span id="visibleCount" class="toolbar-meta"></span>
         <span id="selectedCount" class="toolbar-meta">0 selected</span>
-        <button type="button" id="grabSelected" class="toolbar-btn primary" disabled>
-            <span class="fa-solid fa-magnet"></span> Grab selected
+        <button type="button" id="grabSelected" class="toolbar-btn primary" disabled title="Send the selected torrents to {{ client_name }}">
+            <span class="fa-solid fa-paper-plane"></span> Grab selected
         </button>
     </div>
 </div>
 
-<table class="sortable" id="resultsTable">
+<table class="sortable" id="resultsTable" data-client="{{ client_name }}">
     <thead>
         <tr>
             <th class="select no-sort">
@@ -25,7 +25,7 @@
             <th class="date" data-sort-key="date" data-sort-type="date">Date</th>
             <th class="category no-sort">Category</th>
             <th class="source no-sort">Source</th>
-            <th class="no-sort"></th>
+            <th class="grab no-sort"><span class="visually-hidden">Actions</span></th>
         </tr>
     </thead>
     <tbody>
@@ -67,16 +67,19 @@
                 {% if item.sources %}{{ item.sources }}{% else %}<span class="muted" title="Source not reported">—</span>{% endif %}
             </td>
             <td class="center grab-cell">
-                {% if item.already_added %}
-                <span class="fa-solid fa-check"></span>
-                {% elif item.magnet %}
-                <form hx-post="/send-to-rqbit/" hx-swap="outerHTML">
-                    <input type="hidden" name="magnet" value="{{ item.magnet }}">
-                    {% if item.category %}
-                    <input type="hidden" name="category" value="{{ item.category }}">
+                {% if item.magnet %}
+                <span class="row-actions">
+                    {% if item.is_magnet %}
+                    <a class="row-btn magnet-link" href="{{ item.magnet }}" title="Magnet link (opens your local torrent app; right-click to copy)" aria-label="Magnet link: {{ item.title }}"><span class="fa-solid fa-magnet" aria-hidden="true"></span></a>
+                    {% else %}
+                    <a class="row-btn magnet-link" href="{{ item.magnet }}" target="_blank" rel="noopener noreferrer" title="No magnet listed: open the result's page" aria-label="Open the result's page: {{ item.title }}"><span class="fa-solid fa-up-right-from-square" aria-hidden="true"></span></a>
                     {% endif %}
-                    <button type="submit" title="Grab magnet"><span class="fa-solid fa-magnet"></span></button>
-                </form>
+                    {% if item.already_added %}
+                    <span class="row-btn send-btn" data-state="sent" role="img" title="Already in {{ client_name }}" aria-label="Already in {{ client_name }}: {{ item.title }}"><span class="send-icon"><span class="fa-solid fa-check" aria-hidden="true"></span></span></span>
+                    {% else %}
+                    <button type="button" class="row-btn send-btn" data-state="idle" title="Send to {{ client_name }}" aria-label="Send to {{ client_name }}: {{ item.title }}"><span class="send-icon"><span class="fa-solid fa-paper-plane" aria-hidden="true"></span></span></button>
+                    {% endif %}
+                </span>
                 {% else %}
                 <span class="muted" title="No magnet URL">—</span>
                 {% endif %}
@@ -323,51 +326,100 @@
         if (event.target.classList.contains('row-select')) updateSelectionUi();
     });
 
-    const postMagnet = async (magnet, category) => {
+    // Sending to the torrent client (per-row button and "Grab selected").
+    // Same backend as before: POST /send-to-rqbit/ with the magnet and the
+    // category to forward; the source id lets the server swap a 0Magnet
+    // details-page link for the magnet printed on that page.
+    const clientName = table.dataset.client || 'torrent client';
+    const SEND_ICONS = {
+        idle: 'fa-paper-plane',
+        sending: 'fa-spinner fa-spin',
+        sent: 'fa-check',
+        error: 'fa-triangle-exclamation',
+    };
+
+    const setSendState = (row, state, message) => {
+        const btn = row.querySelector('.send-btn');
+        if (!btn) return;
+        btn.dataset.state = state;
+        const icon = btn.querySelector('.send-icon');
+        // Replace the element so the Font Awesome kit re-renders it.
+        if (icon) icon.innerHTML = `<span class="fa-solid ${SEND_ICONS[state]}" aria-hidden="true"></span>`;
+        const title = {
+            idle: `Send to ${clientName}`,
+            sending: `Sending to ${clientName}…`,
+            sent: `Sent to ${clientName}`,
+            error: `Couldn't send to ${clientName}: ${message || 'unknown error'}. Click to retry.`,
+        }[state];
+        btn.title = title;
+        btn.setAttribute('aria-label', `${title} ${row.dataset.name || ''}`.trim());
+        if (btn.tagName === 'BUTTON') btn.disabled = state === 'sending' || state === 'sent';
+        btn.setAttribute('aria-busy', state === 'sending' ? 'true' : 'false');
+    };
+
+    const postMagnet = async (row) => {
+        const body = new URLSearchParams({ magnet: row.dataset.magnet || '' });
+        if (row.dataset.category) body.set('category', row.dataset.category);
+        const indexer = (row.dataset.sources || '').split(' ').filter(Boolean)[0];
+        if (indexer) body.set('indexer', indexer);
         try {
-            let body = 'magnet=' + encodeURIComponent(magnet);
-            if (category) {
-                body += '&category=' + encodeURIComponent(category);
-            }
             const response = await fetch('/send-to-rqbit/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body,
+                body: body.toString(),
             });
-            return response.ok;
-        } catch (_) {
-            return false;
+            if (response.ok) return { ok: true };
+            let text = (await response.text().catch(() => '')).replace(/^Something went wrong:\s*/, '').trim();
+            if (text.length > 200) text = text.slice(0, 200) + '…';
+            return { ok: false, error: text || `HTTP ${response.status}` };
+        } catch (err) {
+            return { ok: false, error: 'network error' };
         }
     };
+
+    const sendRow = async (row) => {
+        if (!row.dataset.magnet || row.dataset.sent) return false;
+        setSendState(row, 'sending');
+        const result = await postMagnet(row);
+        if (!row.isConnected) return result.ok;
+        if (result.ok) {
+            setSendState(row, 'sent');
+            row.dataset.sent = '1';
+            const cb = row.querySelector('.row-select');
+            if (cb) {
+                cb.checked = false;
+                cb.remove();
+            }
+        } else {
+            setSendState(row, 'error', result.error);
+        }
+        return result.ok;
+    };
+
+    on(tbody, 'click', (event) => {
+        const target = event.target instanceof Element ? event.target : null;
+        const btn = target?.closest('button.send-btn');
+        if (!btn || btn.disabled || !tbody.contains(btn)) return;
+        const row = btn.closest('tr');
+        if (!row) return;
+        sendRow(row).then(() => updateSelectionUi());
+    });
 
     on(grabSelected, 'click', async () => {
         const rows = visibleRows().filter(r => r.querySelector('.row-select')?.checked);
         if (!rows.length) return;
         grabSelected.disabled = true;
-        grabSelected.textContent = 'Grabbing…';
+        grabSelected.textContent = 'Sending…';
         let ok = 0;
+        let failed = 0;
         for (const row of rows) {
-            const magnet = row.dataset.magnet;
-            if (!magnet) continue;
-            const category = row.dataset.category || '';
-            const success = await postMagnet(magnet, category);
-            if (success) {
-                ok += 1;
-                const cell = row.querySelector('.grab-cell');
-                if (cell) cell.innerHTML = '<span class="fa-solid fa-check"></span>';
-                const cb = row.querySelector('.row-select');
-                if (cb) {
-                    cb.checked = false;
-                    cb.disabled = true;
-                    cb.remove();
-                }
-                delete row.dataset.magnet;
-            }
+            if (!row.dataset.magnet) continue;
+            if (await sendRow(row)) ok += 1; else failed += 1;
         }
-        grabSelected.innerHTML = '<span class="fa-solid fa-magnet"></span> Grab selected';
+        grabSelected.innerHTML = '<span class="fa-solid fa-paper-plane"></span> Grab selected';
         updateSelectionUi();
-        if (ok) {
-            selectedCount.textContent = `Grabbed ${ok}`;
+        if (ok || failed) {
+            selectedCount.textContent = `Sent ${ok} to ${clientName}` + (failed ? ` · ${failed} failed` : '');
         }
     });
 

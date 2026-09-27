@@ -9,6 +9,9 @@ pub struct Config {
     pub jackett_apikey: String,
     /// rqbit HTTP API, for example `http://127.0.0.1:9030`.
     pub rqbit_url: String,
+    /// Name shown on the "Send to ..." buttons. When unset, the client's own
+    /// name is used (rqbit reports it at `GET /`), else "torrent client".
+    pub torrent_client_name: Option<String>,
 }
 
 pub static CONFIG: Lazy<Config> = Lazy::new(|| {
@@ -20,5 +23,9 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         jackett_url: env::var("JACKETT_URL").expect("Define the JACKETT_URL environment variable"),
         jackett_apikey: env::var("JACKETT_APIKEY").expect("Define the JACKETT_APIKEY environment variable"),
         rqbit_url: env::var("RQBIT_URL").unwrap_or_else(|_| "http://127.0.0.1:9030".to_string()),
+        torrent_client_name: env::var("TORRENT_CLIENT_NAME")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty()),
     }
 });

@@ -161,6 +161,10 @@ pub struct SendToTransmission {
     /// Optional Newznab/Torznab category id (may be empty when unknown).
     #[serde(default)]
     pub category: Option<String>,
+    /// Source (Lodestarr indexer id) of the result; lets a details-page
+    /// link (0Magnet) be turned into the magnet on that page.
+    #[serde(default)]
+    pub indexer: Option<String>,
 }
 
 /// Pick one Torznab category id from a list of category strings.

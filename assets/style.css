@@ -25,6 +25,7 @@
     --row-selected: #eef1f5;
     --link: #1f5fa8;
     --success: #2f6f35;
+    --danger: #b3261e;
     --placeholder: #757575;
     --search-icon: url('searchicon.png');
 }
@@ -50,6 +51,7 @@
         --row-selected: #2b3644;
         --link: #8ab8f0;
         --success: #7fd08a;
+        --danger: #ff8a80;
         --placeholder: #9aa0a6;
         --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='21' height='21' viewBox='0 0 21 21'%3E%3Ccircle cx='8.5' cy='8.5' r='6' fill='none' stroke='%239aa0a6' stroke-width='2.2'/%3E%3Cpath d='M13 13l6 6' stroke='%239aa0a6' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E");
     }
@@ -74,6 +76,7 @@
     --row-selected: #2b3644;
     --link: #8ab8f0;
     --success: #7fd08a;
+    --danger: #ff8a80;
     --placeholder: #9aa0a6;
     --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='21' height='21' viewBox='0 0 21 21'%3E%3Ccircle cx='8.5' cy='8.5' r='6' fill='none' stroke='%239aa0a6' stroke-width='2.2'/%3E%3Cpath d='M13 13l6 6' stroke='%239aa0a6' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E");
 }
@@ -460,23 +463,82 @@ a {
     background-color: var(--row-hover);
 }
 
-/* Per-row Grab button and its "added" state */
-#mainContent .grab-cell button {
+/* Per-row actions: magnet link + "Send to <client>" (icon buttons). */
+#mainContent th.grab,
+#mainContent td.grab-cell {
+    width: 64px;
+    white-space: nowrap;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
+.row-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    vertical-align: middle;
+}
+
+#mainContent .grab-cell .row-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 28px;
+    height: 22px;
+    padding: 0;
+    margin: 0;
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--border-strong);
     border-radius: 3px;
-    padding: 1px 6px;
+    font-size: 12px;
+    line-height: 1;
+    text-decoration: none;
     cursor: pointer;
 }
 
-#mainContent .grab-cell button:hover {
+#mainContent .grab-cell a.row-btn:hover,
+#mainContent .grab-cell button.row-btn:hover:not(:disabled) {
     background: var(--accent-bg);
+}
+
+#mainContent .grab-cell .row-btn:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 1px;
+}
+
+#mainContent .grab-cell .send-icon {
+    display: inline-flex;
+}
+
+#mainContent .grab-cell .send-btn[data-state="sending"] {
+    cursor: progress;
+}
+
+#mainContent .grab-cell .send-btn[data-state="sent"] {
+    color: var(--success);
+    border-color: var(--success);
+    cursor: default;
+}
+
+#mainContent .grab-cell .send-btn[data-state="error"] {
+    color: var(--danger);
+    border-color: var(--danger);
 }
 
 #mainContent .grab-cell .fa-check,
 #mainContent .grab-cell svg.fa-check {
     color: var(--success);
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
 }
 
 #mainContent p {
