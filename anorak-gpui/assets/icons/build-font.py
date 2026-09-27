@@ -66,11 +66,12 @@ def icon_path(svg):
 
 
 def main():
-    order = [".notdef"] + [name for name, _ in ICONS]
+    # GPUI's cosmic-text system (the web build) drops any font without an
+    # "m" glyph, so map "m" to an empty glyph.
+    order = [".notdef", "m"] + [name for name, _ in ICONS]
     glyphs, metrics = {}, {}
-    empty = TTGlyphPen(None)
-    glyphs[".notdef"] = empty.glyph()
-    metrics[".notdef"] = (UPM, 0)
+    for name in (".notdef", "m"):
+        glyphs[name] = TTGlyphPen(None).glyph()
     for name, _ in ICONS:
         path = icon_path((HERE / f"{name}.svg").read_text())
         pen = TTGlyphPen(None)
@@ -79,7 +80,7 @@ def main():
         glyphs[name] = pen.glyph()
     fb = FontBuilder(UPM, isTTF=True)
     fb.setupGlyphOrder(order)
-    fb.setupCharacterMap({cp: name for name, cp in ICONS})
+    fb.setupCharacterMap({ord("m"): "m", **{cp: name for name, cp in ICONS}})
     fb.setupGlyf(glyphs)
     glyf = fb.font["glyf"]
     for name in order:
