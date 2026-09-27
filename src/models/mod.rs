@@ -165,6 +165,10 @@ pub struct SendToTransmission {
     /// link (0Magnet) be turned into the magnet on that page.
     #[serde(default)]
     pub indexer: Option<String>,
+    /// Job id chosen by the page, so it can poll `GET /api/send/{job}` even
+    /// if the answer to the POST never arrives.
+    #[serde(default)]
+    pub job: Option<String>,
 }
 
 /// Pick one Torznab category id from a list of category strings.

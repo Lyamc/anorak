@@ -153,6 +153,9 @@
     const visibleCount = document.getElementById('visibleCount');
 
     const listeners = [];
+    // "Sent N to rqbit · M waiting for peers · K invalid · …" after Grab selected,
+    // shown until the selection changes.
+    let bulkSummary = '';
 
     const on = (el, event, handler) => {
         if (!el) return;
@@ -267,7 +270,7 @@
             .map(r => r.querySelector('.row-select'))
             .filter(Boolean);
         const selected = selectable.filter(cb => cb.checked);
-        selectedCount.textContent = `${selected.length} selected`;
+        selectedCount.textContent = (selected.length === 0 && bulkSummary) ? bulkSummary : `${selected.length} selected`;
         visibleCount.textContent = `${visible.length} shown / ${allRows().length}`;
         grabSelected.disabled = selected.length === 0;
         if (!selectable.length) {
@@ -315,6 +318,7 @@
     });
 
     on(selectAll, 'change', () => {
+        bulkSummary = '';
         visibleRows().forEach(row => {
             const cb = row.querySelector('.row-select');
             if (cb) cb.checked = selectAll.checked;
@@ -323,24 +327,28 @@
     });
 
     on(tbody, 'change', (event) => {
-        if (event.target.classList.contains('row-select')) updateSelectionUi();
+        if (event.target.classList.contains('row-select')) {
+            bulkSummary = '';
+            updateSelectionUi();
+        }
     });
 
     // Sending to the torrent client (per-row button and "Grab selected").
-    // POST /send-to-rqbit/ with the magnet and the category to forward; the
-    // source id lets the server swap a 0Magnet details-page link for the
-    // magnet printed on that page. The server answers within ~8 s:
-    //   queued  - rqbit took the magnet and fetches its metadata in the
-    //             background (it no longer waits for that before answering)
+    // POST /send-to-rqbit/ with the magnet, the category to forward, the
+    // source id (a 0Magnet details-page link is swapped for the magnet on
+    // that page) and a job id chosen here. The server answers within ~8 s:
+    //   queued  - rqbit took the magnet and is waiting for peers to send
+    //             its metadata (normal; not an error)
     //   sent    - rqbit added it;  already - rqbit already had it
-    //   pending - rqbit hasn't answered yet; the server keeps the request
-    //             going and this page polls GET /api/send/{job}
-    // The browser gives up on the POST after SEND_TIMEOUT_MS regardless, so a
-    // button can never spin forever.
+    //   pending - rqbit hasn't confirmed yet; the server keeps at it and
+    //             this page polls GET /api/send/{job} for as long as it takes
+    //   invalid - the link itself is bad (red)
+    //   unreachable / failed - rqbit is down or refused for its own
+    //             reasons (amber; click to retry)
+    // Waiting never turns into an error: if the POST itself is slow, the row
+    // switches to "pending" and polls the job id it chose.
     const clientName = table.dataset.client || 'torrent client';
-    const SEND_TIMEOUT_MS = 12000;
-    const POLL_MS = 2000;
-    const POLL_MAX_MS = 12 * 60 * 1000;
+    const SLOW_POST_MS = 12000;
     const SEND_ICONS = {
         idle: 'fa-paper-plane',
         sending: 'fa-spinner fa-spin',
@@ -348,11 +356,18 @@
         queued: 'fa-clock',
         sent: 'fa-check',
         already: 'fa-check',
-        error: 'fa-triangle-exclamation',
+        invalid: 'fa-triangle-exclamation',
+        unreachable: 'fa-plug',
+        failed: 'fa-circle-exclamation',
     };
     const DONE_STATES = ['queued', 'sent', 'already'];
+    const RETRY_STATES = ['idle', 'invalid', 'unreachable', 'failed'];
     const BUSY_STATES = ['sending', 'pending'];
-    const secs = (ms) => `${Math.round((Number(ms) || 0) / 1000)} s`;
+    const secs = (ms) => {
+        const s = Math.round((Number(ms) || 0) / 1000);
+        return s >= 120 ? `${Math.round(s / 60)} min` : `${s} s`;
+    };
+    const newJobId = () => 'web-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
 
     const setSendState = (row, state, message) => {
         const btn = row.querySelector('.send-btn');
@@ -364,15 +379,19 @@
         const title = {
             idle: `Send to ${clientName}`,
             sending: `Sending to ${clientName}…`,
-            pending: `Handed to ${clientName}, waiting for it to confirm${message ? ` (${message})` : ''}. anorak keeps the request going; this updates by itself.`,
-            queued: `Queued in ${clientName}, fetching metadata… It is listed there as "Resolving metadata" and starts downloading once peers send the torrent's details.`,
+            pending: `Handed to ${clientName}, waiting for it to confirm${message ? ` (${message})` : ''}. Waiting isn't an error; this updates by itself.`,
+            queued: `Queued in ${clientName}, waiting for peers to send the torrent's metadata… It is listed there as "Resolving metadata" and starts downloading once peers answer.`,
             sent: `Sent to ${clientName}`,
             already: `Already in ${clientName}`,
-            error: `Couldn't send to ${clientName}: ${message || 'unknown error'}. Click to retry.`,
+            invalid: `${message || 'Invalid magnet'}. Can't send this link.`,
+            unreachable: (message || '').startsWith('anorak')
+                ? `Couldn't reach anorak, click to retry (${message}).`
+                : `Couldn't reach ${clientName}, click to retry${message ? ` (${message})` : ''}.`,
+            failed: `${clientName} couldn't add it: ${message || 'unknown error'}. Click to retry.`,
         }[state];
         btn.title = title;
         btn.setAttribute('aria-label', `${title} ${row.dataset.name || ''}`.trim());
-        if (btn.tagName === 'BUTTON') btn.disabled = state !== 'idle' && state !== 'error';
+        if (btn.tagName === 'BUTTON') btn.disabled = !RETRY_STATES.includes(state);
         btn.setAttribute('aria-busy', BUSY_STATES.includes(state) ? 'true' : 'false');
     };
 
@@ -386,35 +405,28 @@
         }
     };
 
-    const errorText = async (response) => {
-        let text = (await response.text().catch(() => '')).replace(/^Something went wrong:\s*/, '').trim();
-        if (text.length > 200) text = text.slice(0, 200) + '…';
-        return text || `HTTP ${response.status}`;
+    // Server answer -> { state, job?, message?, stage?, elapsed_ms? }
+    const readSendAnswer = async (response) => {
+        const text = await response.text().catch(() => '');
+        let data = null;
+        try { data = JSON.parse(text); } catch (err) { /* not JSON */ }
+        if (data && data.state) return data;
+        if (response.ok) return { state: 'sent' }; // an older server's bare checkmark
+        let msg = text.replace(/^Something went wrong:\s*/, '').trim();
+        if (msg.length > 200) msg = msg.slice(0, 200) + '…';
+        return { state: 'failed', message: msg || `HTTP ${response.status}` };
     };
 
-    // -> { state, job?, message?, stage?, elapsed_ms? }
-    const postMagnet = async (row) => {
-        const body = new URLSearchParams({ magnet: row.dataset.magnet || '' });
+    const postMagnet = (row) => {
+        const body = new URLSearchParams({ magnet: row.dataset.magnet || '', job: row.dataset.job || '' });
         if (row.dataset.category) body.set('category', row.dataset.category);
         const indexer = (row.dataset.sources || '').split(' ').filter(Boolean)[0];
         if (indexer) body.set('indexer', indexer);
-        try {
-            const response = await fetchWithTimeout('/send-to-rqbit/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
-                body: body.toString(),
-            }, SEND_TIMEOUT_MS);
-            if (!response.ok) return { state: 'error', message: await errorText(response) };
-            const data = await response.json().catch(() => null);
-            // An older server answered with a bare checkmark.
-            if (!data || !data.state) return { state: 'sent' };
-            return data;
-        } catch (err) {
-            if (err && err.name === 'AbortError') {
-                return { state: 'error', message: `anorak didn't answer within ${secs(SEND_TIMEOUT_MS)}` };
-            }
-            return { state: 'error', message: 'network error' };
-        }
+        return fetch('/send-to-rqbit/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json' },
+            body: body.toString(),
+        }).then(readSendAnswer, () => ({ state: 'unreachable', message: "anorak didn't answer (network error)", anorak: true }));
     };
 
     const markHandedOff = (row) => {
@@ -426,60 +438,91 @@
     };
 
     const finishRow = (row, result) => {
+        if (!row.dataset.sendBusy) return;
         delete row.dataset.sendBusy;
         if (DONE_STATES.includes(result.state)) {
             row.dataset.sent = result.state;
             setSendState(row, result.state);
             markHandedOff(row);
+        } else if (result.state === 'invalid' || result.state === 'unreachable') {
+            setSendState(row, result.state, result.message);
         } else {
-            setSendState(row, 'error', result.message);
+            setSendState(row, 'failed', result.message);
         }
         updateSelectionUi();
     };
 
-    // Follow a send the server is still waiting on.
-    const pollRow = async (row, job) => {
-        const started = Date.now();
-        while (row.isConnected && Date.now() - started < POLL_MAX_MS) {
-            await new Promise(resolve => setTimeout(resolve, POLL_MS));
-            if (!row.isConnected) return;
-            let data = null;
-            try {
-                const response = await fetchWithTimeout(`/api/send/${encodeURIComponent(job)}`, {}, 5000);
-                if (response.status === 404) {
-                    finishRow(row, { state: 'error', message: `anorak lost track of this send (restarted?); check ${clientName}` });
-                    return;
-                }
-                if (response.ok) data = await response.json().catch(() => null);
-            } catch (err) { /* keep polling */ }
-            if (!data) continue;
-            if (data.state !== 'pending') {
-                finishRow(row, data);
-                return;
-            }
-            setSendState(row, 'pending', [data.stage ? data.stage.replace(/_/g, ' ') : '', secs(data.elapsed_ms) + ' so far'].filter(Boolean).join(', '));
+    const pendingText = (data) => [
+        data.stage ? data.stage.replace(/_/g, ' ') : '',
+        data.attempts > 1 && data.message ? data.message : '',
+        data.elapsed_ms != null ? `${secs(data.elapsed_ms)} so far` : '',
+    ].filter(Boolean).join('; ');
+
+    // An answer from the POST or from polling.
+    const applyAnswer = (row, data) => {
+        if (!row.isConnected || !row.dataset.sendBusy) return;
+        if (data.job) row.dataset.job = data.job;
+        if (data.state === 'pending' || data.state === 'slow') {
+            markHandedOff(row);
+            setSendState(row, 'pending', data.state === 'slow' ? 'anorak is still handing it over' : pendingText(data));
+            if (!row.dataset.polling) pollRow(row);
+            return;
         }
-        if (row.isConnected && row.dataset.sendBusy) {
-            finishRow(row, { state: 'error', message: `no answer from ${clientName} after ${Math.round(POLL_MAX_MS / 60000)} minutes` });
+        finishRow(row, data);
+    };
+
+    // Follow a send until rqbit confirms or rejects it. No time limit.
+    const pollRow = async (row) => {
+        row.dataset.polling = '1';
+        const started = Date.now();
+        let lastRepost = Date.now();
+        try {
+            while (row.isConnected && row.dataset.sendBusy) {
+                const wait = Date.now() - started < 60000 ? 2000 : 5000;
+                await new Promise(resolve => setTimeout(resolve, wait));
+                if (!row.isConnected || !row.dataset.sendBusy) return;
+                let response = null;
+                try {
+                    response = await fetchWithTimeout(`/api/send/${encodeURIComponent(row.dataset.job)}`, {}, 10000);
+                } catch (err) {
+                    setSendState(row, 'pending', "anorak isn't answering right now; still trying");
+                    continue;
+                }
+                if (response.status === 404) {
+                    // anorak doesn't know this job (restarted, or the POST never
+                    // arrived): hand it over again. Dedupe makes this safe.
+                    if (Date.now() - lastRepost > 15000) {
+                        lastRepost = Date.now();
+                        postMagnet(row).then(data => { if (!data.anorak) applyAnswer(row, data); });
+                    }
+                    continue;
+                }
+                const data = await readSendAnswer(response);
+                applyAnswer(row, data);
+            }
+        } finally {
+            delete row.dataset.polling;
         }
     };
 
-    // Resolves with the row's state once the server has answered the POST
-    // (at most SEND_TIMEOUT_MS); a 'pending' row keeps updating on its own.
+    // Resolves once the row has an answer or has switched to polling (at
+    // most SLOW_POST_MS); a pending row keeps updating on its own.
     const sendRow = async (row) => {
         if (!row.dataset.magnet || row.dataset.sent || row.dataset.sendBusy) return null;
         row.dataset.sendBusy = '1';
+        row.dataset.job = newJobId();
         setSendState(row, 'sending');
-        const result = await postMagnet(row);
-        if (!row.isConnected) return result.state;
-        if (result.state === 'pending' && result.job) {
-            setSendState(row, 'pending', `${secs(result.elapsed_ms)} so far`);
-            markHandedOff(row);
-            pollRow(row, result.job);
-            return 'pending';
+        const post = postMagnet(row);
+        const slow = new Promise(resolve => setTimeout(() => resolve({ state: 'slow' }), SLOW_POST_MS));
+        const first = await Promise.race([post, slow]);
+        if (first.state === 'slow') {
+            // Keep the POST open (closing it could drop the hand-over) and
+            // poll the job id meanwhile.
+            post.then(data => applyAnswer(row, data));
         }
-        finishRow(row, result);
-        return DONE_STATES.includes(result.state) ? result.state : 'error';
+        applyAnswer(row, first);
+        const state = row.dataset.sendBusy ? 'pending' : (row.querySelector('.send-btn')?.dataset.state || 'failed');
+        return state;
     };
 
     on(tbody, 'click', (event) => {
@@ -496,27 +539,32 @@
         if (!rows.length) return;
         grabSelected.disabled = true;
         grabSelected.textContent = 'Sending…';
-        const counts = { done: 0, pending: 0, failed: 0 };
-        // A few at a time; each answers within SEND_TIMEOUT_MS.
+        const counts = { sent: 0, waiting: 0, invalid: 0, unreachable: 0, failed: 0 };
+        // A few at a time; each resolves within SLOW_POST_MS.
         const queue = rows.slice();
         const worker = async () => {
             while (queue.length) {
                 const state = await sendRow(queue.shift());
                 if (state === null) continue;
-                if (DONE_STATES.includes(state)) counts.done += 1;
-                else if (state === 'pending') counts.pending += 1;
-                else counts.failed += 1;
+                if (DONE_STATES.includes(state) || state === 'pending') counts.sent += 1;
+                if (state === 'queued' || state === 'pending') counts.waiting += 1;
+                if (state === 'invalid') counts.invalid += 1;
+                if (state === 'unreachable') counts.unreachable += 1;
+                if (state === 'failed') counts.failed += 1;
             }
         };
         await Promise.all(Array.from({ length: Math.min(4, rows.length) }, worker));
+        // Rows that weren't handed off keep their checkbox, unticked.
+        rows.forEach(r => { const cb = r.querySelector('.row-select'); if (cb) cb.checked = false; });
         grabSelected.innerHTML = '<span class="fa-solid fa-paper-plane"></span> Grab selected';
+        bulkSummary = [
+            `Sent ${counts.sent} to ${clientName}`,
+            counts.waiting ? `${counts.waiting} waiting for peers` : '',
+            counts.invalid ? `${counts.invalid} invalid` : '',
+            counts.unreachable ? `${counts.unreachable} couldn't reach ${clientName}` : '',
+            counts.failed ? `${counts.failed} refused by ${clientName}` : '',
+        ].filter(Boolean).join(' · ');
         updateSelectionUi();
-        const sent = counts.done + counts.pending;
-        if (sent || counts.failed) {
-            selectedCount.textContent = `Sent ${sent} to ${clientName}`
-                + (counts.pending ? ` · ${counts.pending} awaiting confirmation` : '')
-                + (counts.failed ? ` · ${counts.failed} failed` : '');
-        }
     });
 
     // Unchecking a source hides its rows right away (no new search).
