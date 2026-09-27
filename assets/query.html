@@ -77,9 +77,7 @@
     const sortToggle = document.getElementById('sortToggle');
     const filterDot = document.getElementById('filterDot');
     const sortDot = document.getElementById('sortDot');
-    const sortPrimary = document.getElementById('sortPrimary');
-    const sortSecondary = document.getElementById('sortSecondary');
-    const clearSort = document.getElementById('clearSort');
+    const sortApi = window.anorakSort;
     const filterName = document.getElementById('filterName');
     const filterMinSeeds = document.getElementById('filterMinSeeds');
     const filterMinSize = document.getElementById('filterMinSize');
@@ -113,7 +111,6 @@
     const selectedCount = document.getElementById('selectedCount');
     const visibleCount = document.getElementById('visibleCount');
 
-    let current = { key: 'seeders', dir: -1, type: 'number' };
     const listeners = [];
 
     const on = (el, event, handler) => {
@@ -136,11 +133,12 @@
         return String(raw).toLowerCase();
     };
 
-    const parseSortValue = (value) => {
-        if (!value) return null;
-        const [key, dir] = value.split(':');
-        const type = key === 'name' ? 'string' : (key === 'date' ? 'date' : 'number');
-        return { key, dir: dir === 'asc' ? 1 : -1, type };
+    const typeOf = (key) => key === 'name' ? 'string' : (key === 'date' ? 'date' : 'number');
+
+    // Sort levels from the Sort panel (index.html), level 1 first.
+    const sortSpecs = () => {
+        const levels = sortApi ? sortApi.get() : [{ key: 'seeders', dir: 'desc' }];
+        return levels.map(s => ({ key: s.key, dir: s.dir === 'asc' ? 1 : -1, type: typeOf(s.key) }));
     };
 
     const compareRows = (a, b, spec) => {
@@ -159,23 +157,22 @@
             filterMinSize?.value !== '' ||
             filterMaxSize?.value !== ''
         );
-        const sortActive = !(
-            sortPrimary?.value === 'seeders:desc' &&
-            (sortSecondary?.value || '') === ''
-        );
+        const sortActive = sortApi ? !sortApi.isDefault() : false;
         if (filterDot) filterDot.hidden = !filtersActive;
         if (sortDot) sortDot.hidden = !sortActive;
     };
 
     const applySort = () => {
-        const primary = parseSortValue(sortPrimary?.value) || current;
-        const secondary = parseSortValue(sortSecondary?.value);
-        current = primary;
+        const specs = sortSpecs();
+        const primary = specs[0];
         const rows = allRows();
+        // Array.prototype.sort is stable, so ties keep their current order.
         rows.sort((a, b) => {
-            const primaryCmp = compareRows(a, b, primary);
-            if (primaryCmp !== 0) return primaryCmp;
-            return compareRows(a, b, secondary);
+            for (const spec of specs) {
+                const cmp = compareRows(a, b, spec);
+                if (cmp !== 0) return cmp;
+            }
+            return 0;
         });
         rows.forEach(row => tbody.appendChild(row));
         headers.forEach(h => {
@@ -231,28 +228,24 @@
         }
     };
 
-    const sortRowsFromHeader = (key, type) => {
-        const dir = current.key === key ? -current.dir : -1;
-        current = { key, dir, type };
-        const value = `${key}:${dir === 1 ? 'asc' : 'desc'}`;
-        if (sortPrimary && [...sortPrimary.options].some(o => o.value === value)) {
-            sortPrimary.value = value;
-        }
-        applySort();
+    // Header click sets level 1 of the Sort panel (same field flips the
+    // direction; a new field starts at its default direction).
+    const sortRowsFromHeader = (key) => {
+        if (!sortApi) return;
+        const primary = sortApi.get()[0];
+        const dir = primary && primary.key === key
+            ? (primary.dir === 'asc' ? 'desc' : 'asc')
+            : sortApi.defaultDir(key);
+        sortApi.setPrimary(key, dir);
     };
 
     headers.forEach(h => {
         h.style.cursor = 'pointer';
-        on(h, 'click', () => sortRowsFromHeader(h.dataset.sortKey, h.dataset.sortType));
+        on(h, 'click', () => sortRowsFromHeader(h.dataset.sortKey));
     });
 
-    on(sortPrimary, 'change', applySort);
-    on(sortSecondary, 'change', applySort);
-    on(clearSort, 'click', () => {
-        if (sortPrimary) sortPrimary.value = 'seeders:desc';
-        if (sortSecondary) sortSecondary.value = '';
-        applySort();
-    });
+    // Re-sort whenever the Sort panel changes (unsubscribed on next search).
+    const unsubscribeSort = sortApi ? sortApi.subscribe(applySort) : null;
 
     [filterName, filterMinSeeds, filterMinSize, filterMaxSize].forEach(el => {
         on(el, 'input', applyFilters);
@@ -327,6 +320,7 @@
 
     window.__anorakResultsCleanup = () => {
         listeners.forEach(([el, event, handler]) => el.removeEventListener(event, handler));
+        if (unsubscribeSort) unsubscribeSort();
     };
 
     applySort();
