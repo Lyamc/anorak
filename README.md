@@ -23,6 +23,7 @@ services.anorak = {
 `jackettUrl` is the Torznab results URL. Point it at Lodestarr.
 `jackettApiKey` is sent with each search. Lodestarr accepts any value.
 `rqbitUrl` is rqbit's HTTP API. A grab is posted to `{rqbitUrl}/torrents`.
+Magnets are posted with `defer_metadata=true`, so rqbit queues them at once and fetches their metadata in the background; the button then shows "Queued in rqbit, fetching metadata…". If rqbit takes longer than about 8 seconds to answer (an rqbit without `defer_metadata`, a slow `.torrent` download), `POST /send-to-rqbit/` answers `202` with a job id, keeps the request to rqbit going, and the page polls `GET /api/send/{job}` until rqbit answers. A second send of the same info hash while one is in flight joins it instead of adding it again.
 
 The service listens on port 9341. Set `openFirewall = true` only when it should be reachable on the host's own network.
 

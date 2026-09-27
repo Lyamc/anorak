@@ -512,10 +512,18 @@ a {
     display: inline-flex;
 }
 
-#mainContent .grab-cell .send-btn[data-state="sending"] {
+#mainContent .grab-cell .send-btn[data-state="sending"],
+#mainContent .grab-cell .send-btn[data-state="pending"] {
     cursor: progress;
 }
 
+#mainContent .grab-cell .send-btn[data-state="pending"] {
+    border-style: dashed;
+}
+
+/* Queued: rqbit has it and is fetching the metadata. */
+#mainContent .grab-cell .send-btn[data-state="queued"],
+#mainContent .grab-cell .send-btn[data-state="already"],
 #mainContent .grab-cell .send-btn[data-state="sent"] {
     color: var(--success);
     border-color: var(--success);
