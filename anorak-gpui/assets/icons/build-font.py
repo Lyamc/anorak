@@ -88,7 +88,15 @@ def main():
         metrics[name] = (UPM, getattr(g, "xMin", 0))
     fb.setupHorizontalMetrics(metrics)
     fb.setupHorizontalHeader(ascent=ASC, descent=DESC)
-    fb.setupNameTable({"familyName": "Anorak Icons", "styleName": "Regular"})
+    # fontdb (GPUI's web text system) skips faces without a PostScript name.
+    fb.setupNameTable({
+        "familyName": "Anorak Icons",
+        "styleName": "Regular",
+        "uniqueFontIdentifier": "AnorakIcons-Regular",
+        "fullName": "Anorak Icons Regular",
+        "psName": "AnorakIcons-Regular",
+        "version": "Version 1.000",
+    })
     fb.setupOS2(sTypoAscender=ASC, sTypoDescender=DESC, sTypoLineGap=0,
                 usWinAscent=ASC, usWinDescent=-DESC, fsType=0)
     fb.setupPost()
