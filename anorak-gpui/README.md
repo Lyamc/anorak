@@ -112,6 +112,10 @@ X11, and xkbcommon development libraries.
   shows Retry and the error in a tooltip.
 - A hover tooltip shows the full title. Clicking the name shows it in full
   below the table (the web UI expands the cell in place).
+- Light and dark themes follow the OS setting (the window appearance on
+  native, `prefers-color-scheme` in the browser) and switch live while the
+  app is open. The dark colours are the web UI's dark palette. There is no
+  manual toggle.
 
 ## Measurement modes
 

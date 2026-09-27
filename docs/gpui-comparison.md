@@ -142,7 +142,9 @@ the web UI is unchanged on this branch.
   font (about 1.4 KB).
 - Sort ties keep the server's order. The web UI's stable sort keeps the
   previous on-screen order for ties.
-- No dark mode (the web UI follows `prefers-color-scheme`).
+- Dark mode follows the system setting only (window appearance natively,
+  `prefers-color-scheme` in the browser) and switches live. There is no
+  Auto/Light/Dark toggle. The dark colours are the web UI's.
 - The text field (adapted from GPUI's input example) has no undo, no
   double-click word select and no scrolling for text wider than the box.
 - No Tab focus order between fields. (Fixed on `feature/gpui-wasm`: Tab and
