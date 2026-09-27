@@ -26,6 +26,7 @@
     --link: #1f5fa8;
     --success: #2f6f35;
     --danger: #b3261e;
+    --warning: #8a5300;
     --placeholder: #757575;
     --search-icon: url('searchicon.png');
 }
@@ -52,6 +53,7 @@
         --link: #8ab8f0;
         --success: #7fd08a;
         --danger: #ff8a80;
+    --warning: #f2b84b;
         --placeholder: #9aa0a6;
         --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='21' height='21' viewBox='0 0 21 21'%3E%3Ccircle cx='8.5' cy='8.5' r='6' fill='none' stroke='%239aa0a6' stroke-width='2.2'/%3E%3Cpath d='M13 13l6 6' stroke='%239aa0a6' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E");
     }
@@ -77,6 +79,7 @@
     --link: #8ab8f0;
     --success: #7fd08a;
     --danger: #ff8a80;
+    --warning: #f2b84b;
     --placeholder: #9aa0a6;
     --search-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='21' height='21' viewBox='0 0 21 21'%3E%3Ccircle cx='8.5' cy='8.5' r='6' fill='none' stroke='%239aa0a6' stroke-width='2.2'/%3E%3Cpath d='M13 13l6 6' stroke='%239aa0a6' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E");
 }
@@ -530,9 +533,17 @@ a {
     cursor: default;
 }
 
-#mainContent .grab-cell .send-btn[data-state="error"] {
+/* Bad link (malformed magnet, rejected as invalid, not a torrent). */
+#mainContent .grab-cell .send-btn[data-state="invalid"] {
     color: var(--danger);
     border-color: var(--danger);
+}
+
+/* rqbit down or refusing for its own reasons: not the link's fault. */
+#mainContent .grab-cell .send-btn[data-state="unreachable"],
+#mainContent .grab-cell .send-btn[data-state="failed"] {
+    color: var(--warning);
+    border-color: var(--warning);
 }
 
 #mainContent .grab-cell .fa-check,
