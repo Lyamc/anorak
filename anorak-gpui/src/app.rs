@@ -11,12 +11,13 @@ use gpui::{
     AnyElement, App, ClickEvent, Context, Anchor, Entity, FocusHandle, Focusable, FontWeight,
     Hsla, KeyBinding, MouseButton, SharedString, Stateful, Subscription, Task,
     UniformListScrollHandle, Window, actions, anchored, canvas, deferred, div, point, prelude::*,
-    px, rgb, rgba, uniform_list,
+    px, rgb, rgba, transparent_black, uniform_list,
 };
 
 use crate::api::{self, ApiItem, QueryResult};
 use crate::bench::{self, Bench, Probe, ProbeSlot, ScrollRun};
-use crate::model::{self, Filters, SortKey, SortSpec};
+use crate::icons;
+use crate::model::{self, Filters, SortKey, SortLevels, SortSpec};
 use crate::text_input::{TextInput, TextInputEvent};
 
 actions!(anorak, [CloseMenus, FocusSearch, FocusNext, FocusPrev]);
@@ -41,6 +42,14 @@ const BORDER: u32 = 0xB8C2CD;
 const DARK_BORDER: u32 = 0x656E77;
 const ROW_H: f32 = 36.;
 
+/// Results table sort headers: (element id, label, field).
+const HEADERS: [(&str, &str, SortKey); 4] = [
+    ("h-name", "Name", SortKey::Name),
+    ("h-seeds", "S/P", SortKey::Seeders),
+    ("h-size", "Size", SortKey::Size),
+    ("h-date", "Date", SortKey::Date),
+];
+
 /// Native uses the system Arial (as the web UI's CSS does); the browser build
 /// has no system fonts and uses the IBM Plex Sans it embeds.
 #[cfg(not(target_family = "wasm"))]
@@ -52,12 +61,6 @@ const UI_FONT: &str = crate::web::UI_FONT;
 enum Popover {
     Filter,
     Sort,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum SelectWhich {
-    Primary,
-    Secondary,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -109,12 +112,10 @@ pub struct AnorakApp {
     names_lower: Vec<String>,
     view: Vec<usize>,
     filters: Filters,
-    primary: SortSpec,
-    secondary: Option<SortSpec>,
+    sort: SortLevels,
 
     popover: Option<Popover>,
     popover_closed_at: Option<(Popover, Instant)>,
-    open_select: Option<SelectWhich>,
     status: Status,
     expanded: Option<usize>,
     grab_selected_busy: bool,
@@ -126,6 +127,10 @@ pub struct AnorakApp {
     probe: ProbeSlot,
     scroll_run: Rc<RefCell<ScrollRun>>,
     first_frame_logged: bool,
+    /// `?trace=1` (web): publish `snapshot()` to `window.__anorakState` on
+    /// every frame so a harness driving real mouse input can check state.
+    #[cfg_attr(not(target_family = "wasm"), allow(dead_code))]
+    trace: bool,
 }
 
 impl AnorakApp {
@@ -180,11 +185,9 @@ impl AnorakApp {
             names_lower: Vec::new(),
             view: Vec::new(),
             filters: Filters::default(),
-            primary: SortSpec::DEFAULT,
-            secondary: None,
+            sort: SortLevels::default(),
             popover: None,
             popover_closed_at: None,
-            open_select: None,
             status: Status::Idle,
             expanded: None,
             grab_selected_busy: false,
@@ -195,6 +198,10 @@ impl AnorakApp {
             probe,
             scroll_run: Rc::new(RefCell::new(ScrollRun::default())),
             first_frame_logged: false,
+            #[cfg(target_family = "wasm")]
+            trace: crate::web::query_param("trace").is_some_and(|v| v != "0"),
+            #[cfg(not(target_family = "wasm"))]
+            trace: false,
         }
     }
 
@@ -287,8 +294,7 @@ impl AnorakApp {
             |i| &rows[i].item,
             &self.names_lower,
             &self.filters,
-            self.primary,
-            self.secondary,
+            self.sort.specs(),
         );
         let mut visible = vec![false; self.rows.len()];
         for &i in &view {
@@ -420,17 +426,20 @@ impl AnorakApp {
         .detach();
     }
 
+    /// Column header click: sets sort level 1 (same column flips, a new
+    /// column starts at its default direction), as in the web UI.
     fn sort_by_header(&mut self, key: SortKey, cx: &mut Context<Self>) {
-        // Same rule as the web UI: same column flips, a new column starts descending.
-        let asc = if self.primary.key == key { !self.primary.asc } else { false };
-        self.primary = SortSpec { key, asc };
+        self.sort.header_click(key);
+        self.sort_changed(cx);
+    }
+
+    fn sort_changed(&mut self, cx: &mut Context<Self>) {
         self.recompute();
         cx.notify();
     }
 
     fn close_menus(&mut self) {
         self.popover = None;
-        self.open_select = None;
     }
 
     fn toggle_popover(&mut self, which: Popover, cx: &mut Context<Self>) {
@@ -541,10 +550,10 @@ impl AnorakApp {
                         let start = Instant::now();
                         let text = if apply { "1080" } else { "" };
                         this.f_name.update(cx, |i, cx| i.set_text(text, cx));
-                        this.primary = if apply {
-                            SortSpec { key: SortKey::Size, asc: false }
+                        this.sort = if apply {
+                            SortLevels::from_specs(vec![SortSpec::new(SortKey::Size, false)])
                         } else {
-                            SortSpec::DEFAULT
+                            SortLevels::default()
                         };
                         this.read_filters(cx);
                         let t = Instant::now();
@@ -631,17 +640,49 @@ impl AnorakApp {
                     "date": it.date, "grab": format!("{:?}", self.rows[i].grab)})
             })
             .collect();
+        // The column header texts (the primary sort's column carries ↑/↓).
+        let header: Vec<String> = HEADERS.iter().map(|&(_, t, k)| self.header_text(t, k)).collect();
         serde_json::json!({
             "status": format!("{:?}", self.status),
             "popover": format!("{:?}", self.popover),
-            "open_select": format!("{:?}", self.open_select),
             "shown": self.view.len(), "total": self.rows.len(),
             "selected": selected, "selectable": selectable,
             "grabbed_msg": self.grabbed_msg,
             "filters_active": self.filters.is_active(),
-            "primary": self.primary.label(),
-            "secondary": self.secondary.map(|s| s.label()),
+            "sort": self.sort.specs().iter().map(|s| s.label()).collect::<Vec<_>>(),
+            "sort_dot": !self.sort.is_default(),
+            "sort_panel": self.sort_panel_state(),
+            "header": header,
             "first_rows": first,
+        })
+    }
+
+    /// What the Sort panel shows (active/disabled fields and tooltips), for logs.
+    fn sort_panel_state(&self) -> serde_json::Value {
+        let rows: Vec<serde_json::Value> = self
+            .sort
+            .specs()
+            .iter()
+            .enumerate()
+            .map(|(i, spec)| {
+                serde_json::json!({
+                    "label": SortLevels::verb(i),
+                    "active": spec.key.id(),
+                    "disabled": SortKey::ALL.iter()
+                        .filter(|k| self.sort.field_disabled(i, **k))
+                        .map(|k| k.id()).collect::<Vec<_>>(),
+                    "field_tips": SortKey::ALL.iter()
+                        .map(|k| self.sort.field_tip(i, *k)).collect::<Vec<_>>(),
+                    "dir_icon": if spec.asc { "up" } else { "down" },
+                    "dir_tip": self.sort.dir_tip(i),
+                    "removable": i > 0,
+                })
+            })
+            .collect();
+        serde_json::json!({
+            "rows": rows,
+            "add_enabled": self.sort.can_add(),
+            "add_tip": self.sort.add_tip(),
         })
     }
 
@@ -686,24 +727,23 @@ impl AnorakApp {
                 t.f_min_size.update(c, |i, c| i.set_text("500", c));
             });
             step!("escape_closes", 300, |t, w, c| { t.close_menus(); });
-            step!("open_sort_and_primary_select", 1500, |t, w, c| {
-                t.toggle_popover(Popover::Sort, c);
-                t.open_select = Some(SelectWhich::Primary);
-            });
-            step!("sort_size_desc_then_date_desc", 1200, |t, w, c| {
-                t.primary = SortSpec { key: SortKey::Size, asc: false };
-                t.secondary = Some(SortSpec { key: SortKey::Date, asc: false });
-                t.open_select = None;
-                t.recompute();
-            });
+            step!("open_sort", 1200, |t, w, c| { t.toggle_popover(Popover::Sort, c); });
+            step!("pick_name", 300, |t, w, c| { t.sort.pick(0, SortKey::Name); t.sort_changed(c); });
+            step!("flip_row1", 300, |t, w, c| { t.sort.flip(0); t.sort_changed(c); });
+            step!("add_row", 300, |t, w, c| { t.sort.add(); t.sort_changed(c); });
+            step!("add_two_more", 1200, |t, w, c| { t.sort.add(); t.sort.add(); t.sort_changed(c); });
+            step!("add_at_max_noop", 300, |t, w, c| { t.sort.add(); t.sort_changed(c); });
+            step!("pick_disabled_noop", 300, |t, w, c| { t.sort.pick(2, SortKey::Name); t.sort_changed(c); });
+            step!("swap_row2_date", 300, |t, w, c| { t.sort.pick(1, SortKey::Date); t.sort_changed(c); });
+            step!("remove_row3", 300, |t, w, c| { t.sort.remove(2); t.sort_changed(c); });
             step!("toggle_sort_closes", 300, |t, w, c| { t.toggle_popover(Popover::Sort, c); });
+            step!("header_click_size", 300, |t, w, c| { t.sort_by_header(SortKey::Size, c); });
+            step!("header_click_size_again", 300, |t, w, c| { t.sort_by_header(SortKey::Size, c); });
             step!("header_click_name", 300, |t, w, c| { t.sort_by_header(SortKey::Name, c); });
-            step!("header_click_name_again", 300, |t, w, c| { t.sort_by_header(SortKey::Name, c); });
             step!("clear_filters_and_sort", 300, |t, w, c| {
                 t.clear_filters(w, c);
-                t.primary = SortSpec::DEFAULT;
-                t.secondary = None;
-                t.recompute();
+                t.sort.reset();
+                t.sort_changed(c);
             });
             step!("select_all", 300, |t, w, c| { t.toggle_select_all(c); });
             step!("unselect_first_row_mixed", 300, |t, w, c| {
@@ -778,7 +818,7 @@ impl AnorakApp {
     fn render_search_bar(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
         let ready = self.filters_ready();
         let filter_active = self.filters.is_active();
-        let sort_active = !(self.primary == SortSpec::DEFAULT && self.secondary.is_none());
+        let sort_active = !self.sort.is_default();
         div()
             .flex()
             .items_center()
@@ -913,96 +953,169 @@ impl AnorakApp {
     }
 
     fn render_sort_panel(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
-        Self::panel_frame()
-            .child(self.render_select(SelectWhich::Primary, cx))
-            .child(self.render_select(SelectWhich::Secondary, cx))
-            .child(
-                button("clear-sort", "Clear sort", false).on_click(cx.listener(
-                    |this, _: &ClickEvent, _, cx| {
-                        this.primary = SortSpec::DEFAULT;
-                        this.secondary = None;
-                        this.open_select = None;
-                        this.recompute();
-                        cx.notify();
-                    },
-                )),
-            )
-    }
-
-    /// A minimal <select>: a button that expands an inline option list.
-    fn render_select(&mut self, which: SelectWhich, cx: &mut Context<Self>) -> impl IntoElement {
-        let (label, current) = match which {
-            SelectWhich::Primary => ("Sort", Some(self.primary)),
-            SelectWhich::Secondary => ("Then", self.secondary),
-        };
-        let current_label = current.map(|s| s.label()).unwrap_or("None");
-        let is_open = self.open_select == Some(which);
-        let id_base = if which == SelectWhich::Primary { "sel-primary" } else { "sel-secondary" };
-
-        let trigger = div()
-            .id(id_base)
+        let rows: Vec<gpui::Div> = (0..self.sort.len()).map(|i| self.render_sort_row(i, cx)).collect();
+        let can_add = self.sort.can_add();
+        let add_tip = SharedString::from(self.sort.add_tip());
+        let mut add = div()
+            .id("sort-add")
             .h(px(32.))
-            .px(px(8.))
+            .px(px(12.))
             .flex()
+            .flex_none()
             .items_center()
-            .justify_between()
+            .gap(px(5.))
             .bg(rgb(0xFFFFFF))
             .border_2()
-            .border_color(rgb(if is_open { DARK_BORDER } else { BORDER }))
+            .border_color(rgb(DARK_BORDER))
             .rounded(px(4.))
-            .text_size(px(14.))
+            .text_size(px(13.))
+            .child(icon(icons::PLUS, 12., TEXT))
+            .child("Then by")
+            .tooltip(move |_, cx| cx.new(|_| Tip(add_tip.clone())).into());
+        if can_add {
+            add = add
+                .cursor_pointer()
+                .hover(|s| s.bg(rgb(0xFCFCFC)))
+                .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                    if this.sort.add() {
+                        this.sort_changed(cx);
+                    }
+                }));
+        } else {
+            add = add.opacity(0.5);
+        }
+        let clear = button("clear-sort", "Clear sort", false)
+            .tooltip(|_, cx| cx.new(|_| Tip(SortLevels::CLEAR_TIP.into())).into())
+            .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
+                this.sort.reset();
+                this.sort_changed(cx);
+            }));
+        Self::panel_frame()
+            .child(div().flex().flex_col().gap(px(10.)).children(rows))
+            .child(div().flex().justify_between().gap(px(8.)).child(add).child(clear))
+    }
+
+    /// One sort level: joined field buttons (Name / Size / Seeds / Age), the
+    /// direction toggle and, after level 1, a remove button (web: .sort-row).
+    fn render_sort_row(&mut self, i: usize, cx: &mut Context<Self>) -> gpui::Div {
+        let spec = self.sort.specs()[i];
+        let n_fields = SortKey::ALL.len();
+        let mut fields = div().flex().flex_none();
+        for (k, key) in SortKey::ALL.into_iter().enumerate() {
+            let active = spec.key == key;
+            let disabled = self.sort.field_disabled(i, key);
+            let next_active = SortKey::ALL.get(k + 1) == Some(&spec.key);
+            let tip = SharedString::from(self.sort.field_tip(i, key));
+            // Joined buttons share one 2px border; the active one draws all
+            // four of its sides in its own colour (web: z-index 2).
+            let mut b = div()
+                .id(SharedString::from(format!("sort-{i}-{}", key.id())))
+                .h(px(32.))
+                .min_w(px(40.))
+                .px(px(10.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .border_t_2()
+                .border_b_2()
+                .border_color(rgb(if active { TEXT } else { BORDER }))
+                .bg(rgb(if active { TEXT } else { 0xFFFFFF }))
+                .child(icon(field_icon(key), 14., if active { 0xFFFFFF } else { TEXT }))
+                .tooltip(move |_, cx| cx.new(|_| Tip(tip.clone())).into());
+            if k == 0 || active {
+                b = b.border_l_2();
+            }
+            if !next_active {
+                b = b.border_r_2();
+            }
+            if k == 0 {
+                b = b.rounded_tl(px(4.)).rounded_bl(px(4.));
+            }
+            if k + 1 == n_fields {
+                b = b.rounded_tr(px(4.)).rounded_br(px(4.));
+            }
+            if disabled {
+                b = b.opacity(0.35);
+            } else if !active {
+                b = b
+                    .cursor_pointer()
+                    .hover(|s| s.bg(rgb(0xFCFCFC)).border_color(rgb(DARK_BORDER)))
+                    .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                        if this.sort.pick(i, key) {
+                            this.sort_changed(cx);
+                        }
+                    }));
+            }
+            fields = fields.child(b);
+        }
+
+        let dir_tip = SharedString::from(self.sort.dir_tip(i));
+        let dir = div()
+            .id(SharedString::from(format!("sort-{i}-dir")))
+            .h(px(32.))
+            .min_w(px(40.))
+            .px(px(10.))
+            .flex()
+            .flex_none()
+            .items_center()
+            .justify_center()
+            .bg(rgb(0xFFFFFF))
+            .border_2()
+            .border_color(rgb(DARK_BORDER))
+            .rounded(px(4.))
             .cursor_pointer()
-            .child(current_label)
-            .child(div().text_size(px(12.)).child(if is_open { "↑" } else { "↓" }))
+            .hover(|s| s.bg(rgb(0xFCFCFC)))
+            .child(icon(if spec.asc { icons::ARROW_UP } else { icons::ARROW_DOWN }, 14., TEXT))
+            .tooltip(move |_, cx| cx.new(|_| Tip(dir_tip.clone())).into())
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                this.open_select = if this.open_select == Some(which) { None } else { Some(which) };
-                cx.notify();
+                this.sort.flip(i);
+                this.sort_changed(cx);
             }));
 
-        let mut col = div().flex().flex_col().gap(px(4.)).child(
-            div().text_size(px(12.)).font_weight(FontWeight::BOLD).child(label),
-        );
-        col = col.child(trigger);
-        if is_open {
-            let mut options: Vec<Option<SortSpec>> = Vec::new();
-            if which == SelectWhich::Secondary {
-                options.push(None);
-            }
-            options.extend(SortSpec::OPTIONS.iter().copied().map(Some));
-            let list = div()
+        let remove = (i > 0).then(|| {
+            div()
+                .id(SharedString::from(format!("sort-{i}-remove")))
+                .ml_auto()
+                .h(px(32.))
+                .min_w(px(32.))
+                .px(px(8.))
                 .flex()
-                .flex_col()
-                .bg(rgb(0xFFFFFF))
+                .flex_none()
+                .items_center()
+                .justify_center()
                 .border_2()
-                .border_color(rgb(BORDER))
+                .border_color(transparent_black())
                 .rounded(px(4.))
-                .py(px(2.))
-                .children(options.into_iter().enumerate().map(|(i, opt)| {
-                    let selected = opt == current;
-                    div()
-                        .id(SharedString::from(format!("{id_base}-{i}")))
-                        .px(px(8.))
-                        .py(px(4.))
-                        .text_size(px(14.))
-                        .cursor_pointer()
-                        .when(selected, |d| d.bg(rgb(ACCENT)).font_weight(FontWeight::BOLD))
-                        .hover(|s| s.bg(rgb(0xEEF1F5)))
-                        .child(opt.map(|s| s.label()).unwrap_or("None"))
-                        .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
-                            match which {
-                                SelectWhich::Primary => {
-                                    this.primary = opt.unwrap_or(SortSpec::DEFAULT)
-                                }
-                                SelectWhich::Secondary => this.secondary = opt,
-                            }
-                            this.open_select = None;
-                            this.recompute();
-                            cx.notify();
-                        }))
-                }));
-            col = col.child(list);
-        }
-        col
+                .cursor_pointer()
+                .hover(|s| s.bg(rgb(0xFCFCFC)).border_color(rgb(DARK_BORDER)))
+                .child(icon(icons::XMARK, 14., TEXT))
+                .tooltip(|_, cx| cx.new(|_| Tip(SortLevels::REMOVE_TIP.into())).into())
+                .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
+                    if this.sort.remove(i) {
+                        this.sort_changed(cx);
+                    }
+                }))
+        });
+
+        div()
+            .flex()
+            .flex_col()
+            .gap(px(4.))
+            .child(
+                div()
+                    .text_size(px(12.))
+                    .font_weight(FontWeight::BOLD)
+                    .child(SortLevels::verb(i)),
+            )
+            .child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(px(6.))
+                    .child(fields)
+                    .child(dir)
+                    .children(remove),
+            )
     }
 
     fn render_toolbar(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1041,6 +1154,16 @@ impl AnorakApp {
             .child(grab)
     }
 
+    /// Column header label, with ↑/↓ on the primary sort's column.
+    fn header_text(&self, text: &str, key: SortKey) -> String {
+        let p = self.sort.primary();
+        match (p.key == key, p.asc) {
+            (false, _) => text.to_string(),
+            (true, true) => format!("{text} ↑"),
+            (true, false) => format!("{text} ↓"),
+        }
+    }
+
     fn render_header(&mut self, cx: &mut Context<Self>) -> impl IntoElement {
         let (selected, selectable) = self.selection_state();
         let all = if selectable == 0 || selected == 0 {
@@ -1050,16 +1173,6 @@ impl AnorakApp {
         } else {
             Check::Mixed
         };
-        let arrow = |key: SortKey, p: SortSpec| -> &'static str {
-            if p.key != key {
-                ""
-            } else if p.asc {
-                " ↑"
-            } else {
-                " ↓"
-            }
-        };
-        let p = self.primary;
         let head = |id: &'static str, text: String, key: SortKey, cx: &mut Context<Self>| {
             div()
                 .id(id)
@@ -1085,16 +1198,16 @@ impl AnorakApp {
                 ),
             )
             .child(
-                head("h-name", format!("Name{}", arrow(SortKey::Name, p)), SortKey::Name, cx)
+                head("h-name", self.header_text("Name", SortKey::Name), SortKey::Name, cx)
                     .flex_1()
                     .min_w(px(0.)),
             )
             .child(
-                head("h-seeds", format!("S/P{}", arrow(SortKey::Seeders, p)), SortKey::Seeders, cx)
+                head("h-seeds", self.header_text("S/P", SortKey::Seeders), SortKey::Seeders, cx)
                     .w(px(120.)),
             )
-            .child(head("h-size", format!("Size{}", arrow(SortKey::Size, p)), SortKey::Size, cx).w(px(140.)))
-            .child(head("h-date", format!("Date{}", arrow(SortKey::Date, p)), SortKey::Date, cx).w(px(160.)))
+            .child(head("h-size", self.header_text("Size", SortKey::Size), SortKey::Size, cx).w(px(140.)))
+            .child(head("h-date", self.header_text("Date", SortKey::Date), SortKey::Date, cx).w(px(160.)))
             .child(div().w(px(76.)))
     }
 
@@ -1231,6 +1344,26 @@ fn button(id: &'static str, label: &'static str, primary: bool) -> Stateful<gpui
         .child(label)
 }
 
+/// An icon glyph from the embedded icon font (see icons.rs), `size` px square.
+fn icon(glyph: &'static str, size: f32, color: u32) -> gpui::Div {
+    div()
+        .flex_none()
+        .font_family(icons::FAMILY)
+        .text_size(px(size))
+        .line_height(px(size))
+        .text_color(rgb(color))
+        .child(glyph)
+}
+
+fn field_icon(key: SortKey) -> &'static str {
+    match key {
+        SortKey::Name => icons::FONT,
+        SortKey::Size => icons::WEIGHT,
+        SortKey::Seeders => icons::SEEDLING,
+        SortKey::Date => icons::CLOCK,
+    }
+}
+
 fn small_button(id: impl Into<gpui::ElementId>, label: &'static str) -> Stateful<gpui::Div> {
     div()
         .id(id)
@@ -1288,6 +1421,10 @@ impl Render for AnorakApp {
             }
         }
         let probe = self.render_probe(window);
+        #[cfg(target_family = "wasm")]
+        if self.trace {
+            crate::web::publish_state(&self.snapshot().to_string());
+        }
 
         let mut body = div()
             .w_full()

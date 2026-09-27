@@ -11,7 +11,8 @@
 //!
 //! Web: the Anorak server serves the Trunk bundle under `/gpui/` and the app
 //! talks to the page's own origin. Query parameters: `backend=webgpu|webgl`
-//! (default: auto), `server=URL`, `bench=1`, `selftest=1`, `term=TEXT`.
+//! (default: auto), `server=URL`, `bench=1`, `selftest=1`, `term=TEXT`,
+//! `trace=1` (publish UI state to `window.__anorakState` for test harnesses).
 
 #![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 #![cfg_attr(target_family = "wasm", no_main)]
@@ -19,6 +20,7 @@
 mod api;
 mod app;
 mod bench;
+mod icons;
 mod model;
 mod text_input;
 
@@ -109,6 +111,7 @@ fn main() {
 
 /// Shared by both targets once the platform is up: key bindings and the one window.
 fn launch(cx: &mut App, server: String, bench: Option<bench::Bench>, win: Option<(f32, f32)>) {
+    icons::register(cx);
     text_input::bind_keys(cx);
     app::bind_keys(cx);
     let title = format!("Anorak Search — {server}");
