@@ -7,8 +7,13 @@
     <link data-trunk rel="rust" data-bin="anorak-gpui" data-bindgen-target="web"
           data-cargo-profile="wasm-release" data-wasm-opt="z"
           data-wasm-opt-params="--enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals --enable-reference-types --enable-multivalue" />
+    <!-- Follow the system light/dark setting before the first frame (no flash);
+         the app's own palette (src/theme.rs) takes over once it paints. -->
+    <meta name="color-scheme" content="light dark" />
     <style>
+        :root { color-scheme: light dark; }
         html, body { margin: 0; height: 100%; overflow: hidden; background: #DDDBDE; }
+        @media (prefers-color-scheme: dark) { html, body { background: #1B1C1F; } }
         canvas { display: block; width: 100%; height: 100%; outline: none;
                  touch-action: none; -webkit-user-select: none; user-select: none; }
     </style>

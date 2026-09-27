@@ -23,6 +23,7 @@ mod bench;
 mod icons;
 mod model;
 mod text_input;
+mod theme;
 
 #[cfg(target_family = "wasm")]
 mod web;

@@ -10,9 +10,11 @@ use gpui::{
     EntityInputHandler, EventEmitter, FocusHandle, Focusable, GlobalElementId, KeyBinding,
     LayoutId, MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PaintQuad, Pixels, Point,
     ShapedLine, SharedString, Style, TextRun, UTF16Selection, UnderlineStyle, Window, actions,
-    div, fill, hsla, point, prelude::*, px, relative, rgb, rgba, size, white,
+    div, fill, point, prelude::*, px, relative, rgb, size,
 };
 use unicode_segmentation::*;
+
+use crate::theme;
 
 actions!(
     text_input,
@@ -560,7 +562,7 @@ impl Element for TextElement {
         let style = window.text_style();
 
         let (display_text, text_color) = if content.is_empty() {
-            (input.placeholder.clone(), hsla(0., 0., 0., 0.2))
+            (input.placeholder.clone(), theme::ca(theme::get().placeholder))
         } else {
             (content, style.color)
         };
@@ -614,7 +616,7 @@ impl Element for TextElement {
                         point(bounds.left() + cursor_pos, bounds.top()),
                         size(px(2.), bounds.bottom() - bounds.top()),
                     ),
-                    gpui::blue(),
+                    theme::ca(theme::get().caret),
                 )),
             )
         } else {
@@ -630,7 +632,7 @@ impl Element for TextElement {
                             bounds.bottom(),
                         ),
                     ),
-                    rgba(0x3311ff30),
+                    theme::ca(theme::get().selection),
                 )),
                 None,
             )
@@ -689,10 +691,11 @@ impl Element for TextElement {
 impl Render for TextInput {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let focused = self.focus_handle.is_focused(window);
+        let t = theme::get();
         let (border_w, border) = if self.height > px(40.) {
-            (px(3.), if focused { rgb(0x656E77) } else { rgb(0xCAD4DF) })
+            (px(3.), if focused { t.border_strong } else { t.border })
         } else {
-            (px(2.), if focused { rgb(0x656E77) } else { rgb(0xB8C2CD) })
+            (px(2.), if focused { t.border_strong } else { t.panel_border })
         };
         div()
             .flex()
@@ -723,11 +726,11 @@ impl Render for TextInput {
             .w_full()
             .h(self.height)
             .px(px(8.))
-            .bg(white())
+            .bg(rgb(t.surface))
             .border(border_w)
-            .border_color(border)
+            .border_color(rgb(border))
             .rounded(px(4.))
-            .text_color(rgb(0x3B373B))
+            .text_color(rgb(t.text))
             .text_size(self.text_size)
             .line_height(self.text_size * 1.4)
             .overflow_hidden()
