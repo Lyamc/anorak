@@ -9,7 +9,7 @@ use web_time::Instant;
 
 use gpui::{
     AnyElement, App, ClickEvent, Context, Anchor, Entity, FocusHandle, Focusable, FontWeight,
-    Hsla, KeyBinding, MouseButton, SharedString, Stateful, Subscription, Task,
+    KeyBinding, MouseButton, SharedString, Stateful, Subscription, Task,
     UniformListScrollHandle, Window, actions, anchored, canvas, deferred, div, point, prelude::*,
     px, rgb, rgba, transparent_black, uniform_list,
 };
@@ -17,6 +17,7 @@ use gpui::{
 use crate::api::{self, ApiItem, QueryResult};
 use crate::bench::{self, Bench, Probe, ProbeSlot, ScrollRun};
 use crate::icons;
+use crate::theme::{self, get as th};
 use crate::model::{self, Filters, SortKey, SortLevels, SortSpec};
 use crate::text_input::{TextInput, TextInputEvent};
 
@@ -35,11 +36,6 @@ pub fn bind_keys(cx: &mut App) {
     ]);
 }
 
-const TEXT: u32 = 0x3B373B;
-const BG: u32 = 0xDDDBDE;
-const ACCENT: u32 = 0xCAD4DF;
-const BORDER: u32 = 0xB8C2CD;
-const DARK_BORDER: u32 = 0x656E77;
 const ROW_H: f32 = 36.;
 
 /// Results table sort headers: (element id, label, field).
@@ -161,6 +157,18 @@ impl AnorakApp {
             }));
         }
         window.focus(&search.focus_handle(cx), cx);
+
+        // Follow the system light/dark setting, live.
+        theme::set_appearance(window.appearance());
+        subs.push(cx.observe_window_appearance(window, |this, window, cx| {
+            if theme::set_appearance(window.appearance()) {
+                if let Some(b) = &this.bench {
+                    b.log(serde_json::json!({"event": "theme_changed", "theme": th().name()}));
+                }
+                window.refresh();
+                cx.notify();
+            }
+        }));
 
         let probe: ProbeSlot = Rc::new(RefCell::new(None));
         let bench = bench.map(Rc::new);
@@ -644,6 +652,7 @@ impl AnorakApp {
         let header: Vec<String> = HEADERS.iter().map(|&(_, t, k)| self.header_text(t, k)).collect();
         serde_json::json!({
             "status": format!("{:?}", self.status),
+            "theme": th().name(),
             "popover": format!("{:?}", self.popover),
             "shown": self.view.len(), "total": self.rows.len(),
             "selected": selected, "selectable": selectable,
@@ -849,8 +858,8 @@ impl AnorakApp {
             .justify_center()
             .border(px(3.))
             .rounded(px(4.))
-            .border_color(rgb(if open { DARK_BORDER } else { ACCENT }))
-            .bg(rgb(if open { ACCENT } else { 0xFFFFFF }))
+            .border_color(rgb(if open { th().border_strong } else { th().border }))
+            .bg(rgb(if open { th().accent_bg } else { th().surface }))
             .text_size(px(14.))
             .font_weight(FontWeight::BOLD)
             .child(label);
@@ -862,13 +871,13 @@ impl AnorakApp {
                     .right(px(4.))
                     .size(px(8.))
                     .rounded_full()
-                    .bg(rgb(TEXT)),
+                    .bg(rgb(th().text)),
             );
         }
         if enabled {
             toggle = toggle
                 .cursor_pointer()
-                .hover(|s| s.border_color(rgb(DARK_BORDER)))
+                .hover(|s| s.border_color(rgb(th().border_strong)))
                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                     this.toggle_popover(which, cx)
                 }));
@@ -914,12 +923,12 @@ impl AnorakApp {
             .flex()
             .flex_col()
             .gap(px(10.))
-            .bg(rgb(ACCENT))
+            .bg(rgb(th().accent_bg))
             .border_2()
-            .border_color(rgb(BORDER))
+            .border_color(rgb(th().panel_border))
             .rounded(px(4.))
             .shadow_lg()
-            .text_color(rgb(TEXT))
+            .text_color(rgb(th().text))
     }
 
     fn field(label: &'static str, input: AnyElement) -> gpui::Div {
@@ -964,18 +973,18 @@ impl AnorakApp {
             .flex_none()
             .items_center()
             .gap(px(5.))
-            .bg(rgb(0xFFFFFF))
+            .bg(rgb(th().surface))
             .border_2()
-            .border_color(rgb(DARK_BORDER))
+            .border_color(rgb(th().border_strong))
             .rounded(px(4.))
             .text_size(px(13.))
-            .child(icon(icons::PLUS, 12., TEXT))
+            .child(icon(icons::PLUS, 12., th().text))
             .child("Then by")
             .tooltip(move |_, cx| cx.new(|_| Tip(add_tip.clone())).into());
         if can_add {
             add = add
                 .cursor_pointer()
-                .hover(|s| s.bg(rgb(0xFCFCFC)))
+                .hover(|s| s.bg(rgb(th().surface_hover)))
                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
                     if this.sort.add() {
                         this.sort_changed(cx);
@@ -1018,9 +1027,9 @@ impl AnorakApp {
                 .justify_center()
                 .border_t_2()
                 .border_b_2()
-                .border_color(rgb(if active { TEXT } else { BORDER }))
-                .bg(rgb(if active { TEXT } else { 0xFFFFFF }))
-                .child(icon(field_icon(key), 14., if active { 0xFFFFFF } else { TEXT }))
+                .border_color(rgb(if active { th().primary_bg } else { th().panel_border }))
+                .bg(rgb(if active { th().primary_bg } else { th().surface }))
+                .child(icon(field_icon(key), 14., if active { th().primary_text } else { th().text }))
                 .tooltip(move |_, cx| cx.new(|_| Tip(tip.clone())).into());
             if k == 0 || active {
                 b = b.border_l_2();
@@ -1039,7 +1048,7 @@ impl AnorakApp {
             } else if !active {
                 b = b
                     .cursor_pointer()
-                    .hover(|s| s.bg(rgb(0xFCFCFC)).border_color(rgb(DARK_BORDER)))
+                    .hover(|s| s.bg(rgb(th().surface_hover)).border_color(rgb(th().border_strong)))
                     .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                         if this.sort.pick(i, key) {
                             this.sort_changed(cx);
@@ -1059,13 +1068,13 @@ impl AnorakApp {
             .flex_none()
             .items_center()
             .justify_center()
-            .bg(rgb(0xFFFFFF))
+            .bg(rgb(th().surface))
             .border_2()
-            .border_color(rgb(DARK_BORDER))
+            .border_color(rgb(th().border_strong))
             .rounded(px(4.))
             .cursor_pointer()
-            .hover(|s| s.bg(rgb(0xFCFCFC)))
-            .child(icon(if spec.asc { icons::ARROW_UP } else { icons::ARROW_DOWN }, 14., TEXT))
+            .hover(|s| s.bg(rgb(th().surface_hover)))
+            .child(icon(if spec.asc { icons::ARROW_UP } else { icons::ARROW_DOWN }, 14., th().text))
             .tooltip(move |_, cx| cx.new(|_| Tip(dir_tip.clone())).into())
             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                 this.sort.flip(i);
@@ -1087,8 +1096,8 @@ impl AnorakApp {
                 .border_color(transparent_black())
                 .rounded(px(4.))
                 .cursor_pointer()
-                .hover(|s| s.bg(rgb(0xFCFCFC)).border_color(rgb(DARK_BORDER)))
-                .child(icon(icons::XMARK, 14., TEXT))
+                .hover(|s| s.bg(rgb(th().surface_hover)).border_color(rgb(th().border_strong)))
+                .child(icon(icons::XMARK, 14., th().text))
                 .tooltip(|_, cx| cx.new(|_| Tip(SortLevels::REMOVE_TIP.into())).into())
                 .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                     if this.sort.remove(i) {
@@ -1187,7 +1196,7 @@ impl AnorakApp {
         div()
             .flex()
             .items_center()
-            .bg(rgb(ACCENT))
+            .bg(rgb(th().accent_bg))
             .rounded(px(4.))
             .font_weight(FontWeight::BOLD)
             .child(
@@ -1252,14 +1261,14 @@ impl AnorakApp {
             let grab_cell: AnyElement = if item.already_added || row.grab == GrabState::Done {
                 div().child("✓").into_any_element()
             } else if item.magnet.is_empty() {
-                div().text_color(rgb(0x888888)).child("—").into_any_element()
+                div().text_color(rgb(th().muted)).child("—").into_any_element()
             } else {
                 match &row.grab {
                     GrabState::Busy => div().child("…").into_any_element(),
                     GrabState::Failed(err) => {
                         let err: SharedString = err.clone().into();
                         small_button(("grab", ix), "Retry")
-                            .text_color(rgb(0xB00020))
+                            .text_color(rgb(th().error))
                             .tooltip(move |_, cx| cx.new(|_| Tip(err.clone())).into())
                             .on_click(cx.listener(move |this, _: &ClickEvent, _, cx| {
                                 this.grab_one(ix, cx)
@@ -1281,7 +1290,8 @@ impl AnorakApp {
                     .h(px(ROW_H))
                     .flex()
                     .items_center()
-                    .hover(|s| s.bg(rgb(0xFCFCFC)))
+                    .when(row.selected, |d| d.bg(rgb(th().row_selected)))
+                    .hover(|s| s.bg(rgb(th().row_hover)))
                     .child(select_cell)
                     .child(name_cell)
                     .child(
@@ -1308,22 +1318,22 @@ impl Render for Tip {
             .max_w(px(640.))
             .px(px(8.))
             .py(px(4.))
-            .bg(rgb(0xFFFFFF))
+            .bg(rgb(th().surface))
             .border_1()
-            .border_color(rgb(BORDER))
+            .border_color(rgb(th().panel_border))
             .rounded(px(4.))
             .shadow_md()
             .text_size(px(13.))
-            .text_color(rgb(TEXT))
+            .text_color(rgb(th().text))
             .child(self.0.clone())
     }
 }
 
 fn button(id: &'static str, label: &'static str, primary: bool) -> Stateful<gpui::Div> {
     let (bg, fg, border): (u32, u32, u32) = if primary {
-        (TEXT, 0xFFFFFF, TEXT)
+        (th().primary_bg, th().primary_text, th().primary_bg)
     } else {
-        (0xFFFFFF, TEXT, DARK_BORDER)
+        (th().surface, th().text, th().border_strong)
     };
     div()
         .id(id)
@@ -1340,7 +1350,7 @@ fn button(id: &'static str, label: &'static str, primary: bool) -> Stateful<gpui
         .rounded(px(4.))
         .text_size(px(13.))
         .cursor_pointer()
-        .hover(move |s| s.bg(rgb(if primary { 0x555555 } else { 0xFCFCFC })))
+        .hover(move |s| s.bg(rgb(if primary { th().primary_hover } else { th().surface_hover })))
         .child(label)
 }
 
@@ -1371,13 +1381,13 @@ fn small_button(id: impl Into<gpui::ElementId>, label: &'static str) -> Stateful
         .px(px(8.))
         .flex()
         .items_center()
-        .bg(rgb(0xFFFFFF))
+        .bg(rgb(th().surface))
         .border_1()
-        .border_color(rgb(DARK_BORDER))
+        .border_color(rgb(th().border_strong))
         .rounded(px(4.))
         .text_size(px(13.))
         .cursor_pointer()
-        .hover(|s| s.bg(rgb(ACCENT)))
+        .hover(|s| s.bg(rgb(th().accent_bg)))
         .child(label)
 }
 
@@ -1391,9 +1401,9 @@ fn checkbox(id: impl Into<gpui::ElementId>, state: Check) -> Stateful<gpui::Div>
         .justify_center()
         .rounded(px(3.))
         .border_2()
-        .border_color(rgb(if on { 0x0B57D0 } else { DARK_BORDER }))
-        .bg(if on { Hsla::from(rgb(0x0B57D0)) } else { Hsla::from(rgb(0xFFFFFF)) })
-        .text_color(rgb(0xFFFFFF))
+        .border_color(rgb(if on { th().check_bg } else { th().border_strong }))
+        .bg(rgb(if on { th().check_bg } else { th().surface }))
+        .text_color(rgb(th().check_fg))
         .text_size(px(11.))
         .line_height(px(12.))
         .cursor_pointer()
@@ -1440,7 +1450,7 @@ impl Render for AnorakApp {
                 body = body.child(
                     div()
                         .p(px(8.))
-                        .text_color(rgb(0xB00020))
+                        .text_color(rgb(th().error))
                         .child(format!("Search failed: {err}")),
                 );
             }
@@ -1476,10 +1486,10 @@ impl Render for AnorakApp {
                                 .id("expanded-title")
                                 .my(px(6.))
                                 .p(px(8.))
-                                .bg(rgb(0xFFFFFF))
+                                .bg(rgb(th().surface))
                                 .rounded(px(4.))
                                 .border_1()
-                                .border_color(rgb(BORDER))
+                                .border_color(rgb(th().panel_border))
                                 .child(row.item.title.clone())
                                 .cursor_pointer()
                                 .on_click(cx.listener(|this, _: &ClickEvent, _, cx| {
@@ -1501,8 +1511,8 @@ impl Render for AnorakApp {
                     .px(px(10.))
                     .py(px(4.))
                     .rounded(px(4.))
-                    .bg(rgba(0x3B373BDD))
-                    .text_color(rgb(0xFFFFFF))
+                    .bg(rgba((th().primary_bg << 8) | 0xDD))
+                    .text_color(rgb(th().primary_text))
                     .text_size(px(13.))
                     .child("Searching…"),
             );
@@ -1533,10 +1543,10 @@ impl Render for AnorakApp {
             .relative()
             .flex()
             .justify_center()
-            .bg(rgb(BG))
+            .bg(rgb(th().bg))
             .font_family(UI_FONT)
             .text_size(px(16.))
-            .text_color(rgb(TEXT))
+            .text_color(rgb(th().text))
             .child(body)
             .children(probe)
     }
