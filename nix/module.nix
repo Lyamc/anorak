@@ -38,6 +38,13 @@ in
       description = "rqbit HTTP API. Grabs are posted to /torrents on this URL.";
     };
 
+    flaresolverrUrl = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      example = "http://127.0.0.1:8191";
+      description = "FlareSolverr API. When set, 1337x (behind Cloudflare) is searched through it. Run it in the same network namespace as Anorak.";
+    };
+
     openFirewall = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -74,6 +81,9 @@ in
         JACKETT_URL = cfg.jackettUrl;
         JACKETT_APIKEY = cfg.jackettApiKey;
         RQBIT_URL = cfg.rqbitUrl;
+      } // lib.optionalAttrs (cfg.flaresolverrUrl != null) {
+        FLARESOLVERR_URL = cfg.flaresolverrUrl;
+      } // {
         ANORAK_PORT = toString cfg.port;
         RUST_LOG = "info";
       };
