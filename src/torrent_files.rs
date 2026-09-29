@@ -6,8 +6,9 @@
 //!   `/api/v2.0/indexers/{id}/dl?link=` proxy (only for hosts of that source);
 //! * a magnet is resolved by rqbit's `POST /torrents/resolve_magnet`, which
 //!   returns the .torrent bytes and adds nothing to the session;
-//! * a result with only a details-page link (0Magnet) has that page fetched
-//!   through the same proxy and the magnet on it resolved as above.
+//! * a result with only a details-page link (0Magnet, 1337x) has that page
+//!   fetched through the same proxy (1337x: through FlareSolverr) and the
+//!   magnet on it resolved as above.
 //! Results are cached in memory and at most a few lookups run at once.
 
 use crate::config::CONFIG;
@@ -203,6 +204,10 @@ async fn fetch_proxied(link: &str, indexer: &str) -> Result<Vec<u8>> {
         .ok_or_else(|| anyhow!("unknown source {indexer}"))?;
     if !source.hosts().iter().any(|h| *h == host) {
         bail!("{host} is not a site of {}", source.name);
+    }
+    if crate::x1337::handles(&source.id) {
+        // Behind Cloudflare: Lodestarr's proxy gets a 403, FlareSolverr doesn't.
+        return crate::x1337::fetch_page(link).await;
     }
     let base = lodestarr::base_url().ok_or_else(|| anyhow!("no Lodestarr URL"))?;
     let proxy = format!(

@@ -472,9 +472,12 @@ enum AddError {
 async fn run_send(link: Link, category: Option<u32>, indexer: Option<String>, job_id: &str) -> Outcome {
     let link = match (&link, indexer) {
         (Link::Url(url), Some(indexer)) if torrent_files::is_page_link(url) => {
-            // A details page (0Magnet) is not something the client can add;
-            // send the magnet printed on it. A .torrent is left as is.
-            match torrent_files::magnet_for_link(url, &indexer).await {
+            // A details page (0Magnet, 1337x) is not something the client can
+            // add; send the magnet printed on it. A .torrent is left as is.
+            update_job(job_id, |j| j.note = Some("fetching the magnet from the result's page".to_string())).await;
+            let found = torrent_files::magnet_for_link(url, &indexer).await;
+            update_job(job_id, |j| j.note = None).await;
+            match found {
                 Ok(Some(magnet)) => match validate_link(&magnet) {
                     Ok(m) => {
                         info!("sending the magnet from {url}");
@@ -483,6 +486,12 @@ async fn run_send(link: Link, category: Option<u32>, indexer: Option<String>, jo
                     Err(message) => return Outcome::new(SendState::Invalid, format!("{message} (from {url})")),
                 },
                 Ok(None) => link,
+                // A 1337x page is never a .torrent, so there is nothing to fall
+                // back to: the site (not the magnet) is the problem. Retryable.
+                Err(err) if crate::x1337::handles(&indexer) => {
+                    warn!("no magnet from {url}: {err:#}");
+                    return Outcome::new(SendState::Unreachable, format!("Couldn't get the magnet from 1337x: {err}"));
+                }
                 Err(err) => {
                     warn!("no magnet from {url}: {err}");
                     link

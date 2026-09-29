@@ -131,13 +131,26 @@ async fn fetch_indexers() -> Result<Vec<Indexer>> {
 
 /// Search the given sources in parallel and merge the results (duplicates
 /// by info-hash are folded into one row listing every source). Returns the
-/// items and the names of sources that failed.
+/// items and the sources that failed, as "name" or "name (reason)", e.g.
+/// "1337x (blocked by Cloudflare)".
 pub async fn search(query: &str, sources: &[Indexer]) -> (Vec<Item>, Vec<String>) {
     let mut set = tokio::task::JoinSet::new();
     for (index, source) in sources.iter().cloned().enumerate() {
         let query = query.to_string();
         set.spawn(async move {
-            let result = search_source(&query, &source).await;
+            let result = if crate::x1337::handles(&source.id) {
+                crate::x1337::search(&query, &source).await
+            } else {
+                match search_source(&query, &source).await {
+                    // Lodestarr answers a blocked or unreachable site with an
+                    // empty list; check the site so the user hears about it.
+                    Ok(items) if items.is_empty() => match probe_site(&source).await {
+                        Some(label) => Err(crate::flaresolverr::failure(label)),
+                        None => Ok(items),
+                    },
+                    other => other,
+                }
+            };
             (index, source.name, result)
         });
     }
@@ -147,8 +160,8 @@ pub async fn search(query: &str, sources: &[Indexer]) -> (Vec<Item>, Vec<String>
         match joined {
             Ok((index, _, Ok(items))) => parts.push((index, items)),
             Ok((_, name, Err(err))) => {
-                warn!("source {name} failed: {err}");
-                failed.push(name);
+                warn!("source {name} failed: {err:#}");
+                failed.push(failed_label(&name, &err));
             }
             Err(err) => warn!("source search task failed: {err}"),
         }
@@ -157,6 +170,70 @@ pub async fn search(query: &str, sources: &[Indexer]) -> (Vec<Item>, Vec<String>
     let items = dedupe(parts.into_iter().flat_map(|(_, items)| items).collect());
     failed.sort();
     (items, failed)
+}
+
+fn failed_label(name: &str, err: &anyhow::Error) -> String {
+    match err.downcast_ref::<crate::flaresolverr::Failure>() {
+        Some(f) => format!("{name} ({})", f.0),
+        None => name.to_string(),
+    }
+}
+
+/// Results of `probe_site`, per source id, for a few minutes.
+static PROBES: Lazy<Mutex<HashMap<String, (Instant, Option<String>)>>> = Lazy::new(|| Mutex::new(HashMap::new()));
+const PROBE_TTL: Duration = Duration::from_secs(10 * 60);
+const BROWSER_UA: &str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36";
+
+/// One GET of the source's home page (from the same VPN namespace as
+/// Lodestarr) when it returned nothing: "blocked by Cloudflare" when the
+/// site answers with Cloudflare's challenge, "site unreachable" when it
+/// doesn't answer at all, else None (the search really found nothing).
+async fn probe_site(source: &Indexer) -> Option<String> {
+    let url = source.links.first()?.clone();
+    if let Some((at, label)) = PROBES.lock().await.get(&source.id) {
+        if at.elapsed() < PROBE_TTL {
+            return label.clone();
+        }
+    }
+    let label = match CLIENT
+        .get(&url)
+        .header(reqwest::header::USER_AGENT, BROWSER_UA)
+        .timeout(Duration::from_secs(10))
+        .send()
+        .await
+    {
+        Ok(response) => {
+            let status = response.status().as_u16();
+            let challenged = response
+                .headers()
+                .get("cf-mitigated")
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|v| v.eq_ignore_ascii_case("challenge"));
+            let cloudflare = response
+                .headers()
+                .get(reqwest::header::SERVER)
+                .and_then(|v| v.to_str().ok())
+                .is_some_and(|v| v.to_ascii_lowercase().contains("cloudflare"));
+            let body = if cloudflare && !challenged && status >= 400 {
+                response.text().await.unwrap_or_default()
+            } else {
+                String::new()
+            };
+            let title = crate::flaresolverr::page_title(&body);
+            if challenged || (cloudflare && crate::flaresolverr::is_cloudflare_page(status, &title, &body)) {
+                Some("blocked by Cloudflare".to_string())
+            } else {
+                None
+            }
+        }
+        Err(err) if err.is_connect() || err.is_timeout() => Some("site unreachable".to_string()),
+        Err(_) => None,
+    };
+    if let Some(label) = &label {
+        warn!("{} returned nothing and {url} looks {label}", source.name);
+    }
+    PROBES.lock().await.insert(source.id.clone(), (Instant::now(), label.clone()));
+    label
 }
 
 async fn search_source(query: &str, source: &Indexer) -> Result<Vec<Item>> {

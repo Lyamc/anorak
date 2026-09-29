@@ -384,7 +384,9 @@
             sent: `Sent to ${clientName}`,
             already: `Already in ${clientName}`,
             invalid: `${message || 'Invalid magnet'}. Can't send this link.`,
-            unreachable: (message || '').startsWith('anorak')
+            unreachable: (message || '').startsWith("Couldn't get the magnet")
+                ? `${message}. Click to retry.`
+                : (message || '').startsWith('anorak')
                 ? `Couldn't reach anorak, click to retry (${message}).`
                 : `Couldn't reach ${clientName}, click to retry${message ? ` (${message})` : ''}.`,
             failed: `${clientName} couldn't add it: ${message || 'unknown error'}. Click to retry.`,
