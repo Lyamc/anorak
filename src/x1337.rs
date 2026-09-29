@@ -23,6 +23,11 @@ pub const ID: &str = "1337x";
 /// 20 results a page; the second page is only asked for when the first is full.
 const PAGES: u32 = 2;
 const CACHE_TTL: Duration = Duration::from_secs(10 * 60);
+/// After Cloudflare wins, report that at once for a while instead of making
+/// every search wait for another failed challenge.
+const BLOCKED_BACKOFF: Duration = Duration::from_secs(3 * 60);
+
+static BLOCKED_UNTIL: Lazy<Mutex<Option<Instant>>> = Lazy::new(|| Mutex::new(None));
 
 static CACHE: Lazy<Mutex<HashMap<String, (Instant, Vec<Item>)>>> = Lazy::new(|| Mutex::new(HashMap::new()));
 /// Index into the mirror list of the last mirror that worked.
@@ -67,6 +72,11 @@ pub async fn search(query: &str, source: &Indexer) -> Result<Vec<Item>> {
             return Ok(items.clone());
         }
     }
+    if let Some(until) = *BLOCKED_UNTIL.lock().await {
+        if Instant::now() < until {
+            return Err(failure("blocked by Cloudflare"));
+        }
+    }
     let list = mirrors(source);
     let start = *MIRROR.lock().await % list.len();
     let started = Instant::now();
@@ -78,6 +88,7 @@ pub async fn search(query: &str, source: &Indexer) -> Result<Vec<Item>> {
         match search_mirror(base, query, source).await {
             Ok(items) => {
                 *MIRROR.lock().await = index;
+                *BLOCKED_UNTIL.lock().await = None;
                 info!("1337x: {} results for {query:?} from {base} in {} ms", items.len(), started.elapsed().as_millis());
                 let mut cache = CACHE.lock().await;
                 if cache.len() > 200 {
@@ -88,10 +99,15 @@ pub async fn search(query: &str, source: &Indexer) -> Result<Vec<Item>> {
             }
             Err(err) => {
                 warn!("1337x: {base} failed: {err:#}");
-                // FlareSolverr itself being down is the same on every mirror.
-                let down = err.downcast_ref::<flaresolverr::Failure>().is_some_and(|f| f.0.contains("not running"));
+                // FlareSolverr being down, or losing to Cloudflare (a ~40 s
+                // timeout), would be the same on the next mirror: stop here.
+                let label = err.downcast_ref::<flaresolverr::Failure>().map(|f| f.0.clone()).unwrap_or_default();
+                let blocked = label.contains("Cloudflare");
                 last_err = Some(err);
-                if down {
+                if blocked {
+                    *BLOCKED_UNTIL.lock().await = Some(Instant::now() + BLOCKED_BACKOFF);
+                }
+                if blocked || label.contains("not running") {
                     break;
                 }
             }
