@@ -12,6 +12,10 @@ pub struct Config {
     /// Name shown on the "Send to ..." buttons. When unset, the client's own
     /// name is used (rqbit reports it at `GET /`), else "torrent client".
     pub torrent_client_name: Option<String>,
+    /// FlareSolverr (e.g. `http://127.0.0.1:8191`). When set, anorak searches
+    /// 1337x itself through it, since Lodestarr can't pass 1337x's Cloudflare
+    /// check.
+    pub flaresolverr_url: Option<String>,
 }
 
 pub static CONFIG: Lazy<Config> = Lazy::new(|| {
@@ -24,6 +28,10 @@ pub static CONFIG: Lazy<Config> = Lazy::new(|| {
         jackett_apikey: env::var("JACKETT_APIKEY").expect("Define the JACKETT_APIKEY environment variable"),
         rqbit_url: env::var("RQBIT_URL").unwrap_or_else(|_| "http://127.0.0.1:9030".to_string()),
         torrent_client_name: env::var("TORRENT_CLIENT_NAME")
+            .ok()
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty()),
+        flaresolverr_url: env::var("FLARESOLVERR_URL")
             .ok()
             .map(|s| s.trim().to_string())
             .filter(|s| !s.is_empty()),

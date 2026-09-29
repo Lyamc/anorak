@@ -1,10 +1,12 @@
 mod client;
 mod config;
+mod flaresolverr;
 mod lodestarr;
 mod models;
 mod routes;
 mod torrent_files;
 mod utils;
+mod x1337;
 
 mod app_error;
 use axum::{

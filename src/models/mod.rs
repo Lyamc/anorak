@@ -11,7 +11,7 @@ pub struct Channel {
     pub item: Vec<Item>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Item {
     pub title: String,
     pub guid: String,
