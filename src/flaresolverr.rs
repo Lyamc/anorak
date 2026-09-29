@@ -21,7 +21,7 @@ use tokio::sync::Mutex;
 
 const SESSION: &str = "anorak";
 /// FlareSolverr's own limit for one page (challenge included).
-const MAX_TIMEOUT: Duration = Duration::from_secs(50);
+const MAX_TIMEOUT: Duration = Duration::from_secs(40);
 /// Close the browser session after this long without a request.
 const IDLE: Duration = Duration::from_secs(30 * 60);
 
@@ -133,6 +133,9 @@ pub async fn get(url: &str) -> Result<Page> {
                 continue;
             }
             if lower.contains("challenge") || lower.contains("captcha") || lower.contains("timeout") {
+                // Start the next try with a fresh browser, and free this one now.
+                let _ = call(json!({"cmd": "sessions.destroy", "session": SESSION})).await;
+                state.session = false;
                 return Err(failure("blocked by Cloudflare").context(msg));
             }
             bail!("FlareSolverr: {msg}");
