@@ -4,6 +4,7 @@ mod flaresolverr;
 mod lodestarr;
 mod models;
 mod nyaa;
+mod rqbit;
 mod routes;
 mod torrent_files;
 mod utils;

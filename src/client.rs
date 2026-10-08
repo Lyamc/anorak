@@ -52,12 +52,7 @@ pub async fn name() -> String {
 }
 
 async fn probe() -> Option<ClientInfo> {
-    let url = format!("{}/", CONFIG.rqbit_url.trim_end_matches('/'));
-    let response = reqwest::Client::new()
-        .get(&url)
-        .header("Accept", "application/json")
-        .timeout(Duration::from_secs(3))
-        .send()
+    let response = crate::rqbit::get("/", Duration::from_secs(3))
         .await
         .map_err(|err| warn!("torrent client name lookup failed: {err}"))
         .ok()?;

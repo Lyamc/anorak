@@ -11,7 +11,6 @@
 //!   magnet on it resolved as above.
 //! Results are cached in memory and at most a few lookups run at once.
 
-use crate::config::CONFIG;
 use crate::lodestarr;
 use crate::models;
 
@@ -220,12 +219,9 @@ async fn fetch_proxied(link: &str, indexer: &str) -> Result<Vec<u8>> {
 }
 
 async fn resolve_magnet(magnet: &str) -> Result<Vec<u8>> {
-    let url = format!("{}/torrents/resolve_magnet", CONFIG.rqbit_url.trim_end_matches('/'));
-    let response = CLIENT
-        .post(url)
-        .body(magnet.to_string())
-        .timeout(Duration::from_secs(40))
-        .send()
+    // rqbit takes the magnet as a bare string body (zstd-compressed like
+    // every body anorak sends it).
+    let response = crate::rqbit::post_text("/torrents/resolve_magnet", magnet, Duration::from_secs(40))
         .await
         .map_err(|err| {
             if err.is_timeout() {

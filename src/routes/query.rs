@@ -185,8 +185,7 @@ pub(crate) async fn gather_items(search_query: &str, filter: &SearchFilter) -> R
 }
 
 async fn request_rqbit_known_torrents() -> Vec<String> {
-    let url = format!("{}/torrents", CONFIG.rqbit_url.trim_end_matches('/'));
-    let response = match reqwest::get(&url).await {
+    let response = match crate::rqbit::get("/torrents", std::time::Duration::from_secs(10)).await {
         Ok(response) => response,
         Err(err) => {
             warn!("rqbit torrent list failed: {err}");

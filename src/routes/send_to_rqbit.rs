@@ -7,21 +7,24 @@
 //!
 //! * The link is checked here first (magnet: scheme, xt=urn:btih: with a
 //!   40-hex or 32-base32 info hash, or an http(s) URL).
-//! * Magnets are added with `defer_metadata=true`: rqbit queues them at once
-//!   (listed as "Resolving metadata") and answers `resolving: true`.
-//!   `magnet_timeout_secs` is set to a year so rqbit keeps looking for peers
-//!   instead of marking the placeholder "Metadata failed" after its default
-//!   15 minutes.
+//! * The add is one `POST /torrents` with a JSON body (zstd-compressed, see
+//!   [`crate::rqbit`]): `url`, the category fields, `add_job_id` and, for
+//!   magnets, `magnet_timeout_secs`. rqbit queues a magnet at once (listed as
+//!   "Resolving metadata") and answers `resolving: true`. `magnet_timeout_secs`
+//!   is a year so rqbit keeps looking for peers instead of marking the
+//!   placeholder "Metadata failed" after its default 15 minutes. rqbit's own
+//!   time limit for the add goes in the `x-req-timeout-ms` header.
 //! * The request to rqbit runs in a background task that is never dropped
 //!   (dropping an add request cancels it in rqbit). The HTTP handler waits
 //!   at most [`HANDOFF_WAIT`]; if rqbit hasn't answered by then it answers
 //!   `pending` with a job id and the page polls `GET /api/send/{job}`.
-//! * If rqbit's add times out (an rqbit that ignores `defer_metadata` and
-//!   waits for metadata, a slow .torrent download), the add is sent again
-//!   (with `defer_metadata` for magnets) and the send stays `pending`.
+//! * If rqbit's add times out (a slow .torrent download, an rqbit that waits
+//!   for a magnet's metadata), the add is sent again and the send stays
+//!   `pending`.
 //! * A send of an info hash (or link) that is already in flight joins it.
 
 use crate::models::SendToTransmission;
+use crate::rqbit;
 use crate::torrent_files;
 use crate::config::CONFIG;
 
@@ -40,7 +43,7 @@ use urlencoding::decode;
 
 /// Longest the send request itself waits for rqbit before answering `pending`.
 const HANDOFF_WAIT: Duration = Duration::from_secs(8);
-/// rqbit's own limit for one add request (`timeout_ms`, capped by rqbit at 1 h).
+/// rqbit's own limit for one add request (`x-req-timeout-ms`, capped by rqbit at 1 h).
 const RQBIT_ADD_TIMEOUT_MS: u64 = 3_600_000;
 /// anorak's limit for one add request; a bit longer than rqbit's.
 const RQBIT_REQUEST_TIMEOUT: Duration = Duration::from_secs(3_600 + 60);
@@ -546,10 +549,6 @@ async fn run_send(
     }
 }
 
-fn rqbit_base() -> String {
-    CONFIG.rqbit_url.trim_end_matches('/').to_string()
-}
-
 /// A Nyaa/sukebei category, forwarded to rqbit as `category_source`,
 /// `category_id` and `category` next to the numeric `torznab_category`.
 /// Each part is only sent when it is valid.
@@ -590,24 +589,37 @@ fn is_site_category_id(s: &str) -> bool {
     }
 }
 
-/// Category query parameters for rqbit's `POST /torrents`.
-fn category_params(torznab_category: Option<u32>, site: Option<&SendCategory>) -> Vec<(&'static str, String)> {
-    let mut params = Vec::new();
+/// The JSON body of rqbit's `POST /torrents`. Only fields rqbit knows;
+/// it rejects unknown ones.
+fn add_body(
+    link: &Link,
+    torznab_category: Option<u32>,
+    site: Option<&SendCategory>,
+    rqbit_job: &str,
+) -> serde_json::Value {
+    let mut body = serde_json::Map::new();
+    body.insert("url".into(), link.url().into());
     if let Some(id) = torznab_category {
-        params.push(("torznab_category", id.to_string()));
+        body.insert("torznab_category".into(), id.into());
     }
     if let Some(site) = site {
         if let Some(label) = &site.label {
-            params.push(("category", label.clone()));
+            body.insert("category".into(), label.as_str().into());
         }
         if let Some(source) = &site.source {
-            params.push(("category_source", source.clone()));
+            body.insert("category_source".into(), source.as_str().into());
         }
         if let Some(id) = &site.id {
-            params.push(("category_id", id.clone()));
+            body.insert("category_id".into(), id.as_str().into());
         }
     }
-    params
+    if let Link::Magnet { .. } = link {
+        // rqbit keeps looking for the metadata for MAGNET_RESOLVE_SECS.
+        body.insert("magnet_timeout_secs".into(), MAGNET_RESOLVE_SECS.into());
+    }
+    // Lets `GET /api/send/{job}` show rqbit's stage (/add_jobs/{id}).
+    body.insert("add_job_id".into(), rqbit_job.into());
+    serde_json::Value::Object(body)
 }
 
 async fn add_once(
@@ -616,31 +628,9 @@ async fn add_once(
     site_category: Option<&SendCategory>,
     rqbit_job: &str,
 ) -> Result<Outcome, AddError> {
-    let mut params: Vec<(&str, String)> = category_params(torznab_category, site_category);
-    if let Link::Magnet { .. } = link {
-        // Return as soon as the magnet is queued; rqbit fetches the metadata
-        // in the background and keeps trying for MAGNET_RESOLVE_SECS.
-        params.push(("defer_metadata", "true".to_string()));
-        params.push(("magnet_timeout_secs", MAGNET_RESOLVE_SECS.to_string()));
-    }
-    params.push(("timeout_ms", RQBIT_ADD_TIMEOUT_MS.to_string()));
-    // Lets `GET /api/send/{job}` show rqbit's stage (/add_jobs/{id}).
-    params.push(("add_job_id", rqbit_job.to_string()));
-    let query: Vec<String> = params
-        .iter()
-        .map(|(k, v)| format!("{k}={}", urlencoding::encode(v)))
-        .collect();
-    let url = format!("{}/torrents?{}", rqbit_base(), query.join("&"));
-
-    let client = reqwest::Client::builder()
-        .connect_timeout(Duration::from_secs(10))
-        .timeout(RQBIT_REQUEST_TIMEOUT)
-        .build()
-        .map_err(|e| AddError::Failed(format!("couldn't set up the request: {e}")))?;
-    let response = client
-        .post(url)
-        .body(link.url().to_string())
-        .send()
+    let body = add_body(link, torznab_category, site_category, rqbit_job);
+    let timeout = [("x-req-timeout-ms", RQBIT_ADD_TIMEOUT_MS.to_string())];
+    let response = rqbit::post_json("/torrents", &body, RQBIT_REQUEST_TIMEOUT, &timeout)
         .await
         .map_err(|err| {
             if err.is_connect() {
@@ -654,7 +644,7 @@ async fn add_once(
     let status = response.status();
     let text = response.text().await.unwrap_or_default();
     if !status.is_success() {
-        return Err(classify_rqbit_error(status, &rqbit_error_text(&text)));
+        return Err(classify_rqbit_error(status, rqbit_error_kind(&text).as_deref(), &rqbit_error_text(&text)));
     }
     let mut outcome = outcome_from_rqbit(&text);
     if outcome.state == SendState::Already && response_flag(&text, "resolving") {
@@ -692,7 +682,8 @@ fn outcome_from_rqbit(text: &str) -> Outcome {
 }
 
 /// Sorts an rqbit error answer into waiting / invalid / unreachable / failed.
-fn classify_rqbit_error(status: reqwest::StatusCode, msg: &str) -> AddError {
+/// `kind` is rqbit's `error_kind` (`invalid_input` for a malformed request).
+fn classify_rqbit_error(status: reqwest::StatusCode, kind: Option<&str>, msg: &str) -> AddError {
     use reqwest::StatusCode;
     let lower = msg.to_ascii_lowercase();
     if lower.contains("timeout") || lower.contains("timed out") {
@@ -700,6 +691,15 @@ fn classify_rqbit_error(status: reqwest::StatusCode, msg: &str) -> AddError {
     }
     if status == StatusCode::BAD_GATEWAY || status == StatusCode::SERVICE_UNAVAILABLE || status == StatusCode::GATEWAY_TIMEOUT {
         return AddError::Unreachable(format!("rqbit isn't available: {status}: {msg}"));
+    }
+    if status == StatusCode::PAYLOAD_TOO_LARGE {
+        return AddError::Failed(format!("rqbit refused the request as too large ({status})"));
+    }
+    if status == StatusCode::UNSUPPORTED_MEDIA_TYPE {
+        return AddError::Failed(format!("rqbit doesn't accept the request's encoding ({status})"));
+    }
+    if status == StatusCode::BAD_REQUEST && kind == Some("invalid_input") && !lower.contains("add_job_id") {
+        return AddError::Invalid(format!("rqbit rejected it as invalid: {msg}"));
     }
     const INVALID: &[&str] = &[
         "not a valid magnet",
@@ -727,6 +727,12 @@ fn classify_rqbit_error(status: reqwest::StatusCode, msg: &str) -> AddError {
     AddError::Failed(format!("{status}: {msg}"))
 }
 
+/// rqbit's `error_kind` (e.g. `invalid_input`), if the answer has one.
+fn rqbit_error_kind(text: &str) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_str(text).ok()?;
+    Some(value.get("error_kind")?.as_str()?.to_string())
+}
+
 /// rqbit errors look like `{"human_readable": "...", ...}`; fall back to the body.
 fn rqbit_error_text(text: &str) -> String {
     let value: serde_json::Value = serde_json::from_str(text).unwrap_or_default();
@@ -740,14 +746,8 @@ fn rqbit_error_text(text: &str) -> String {
 /// A magnet placeholder rqbit gave up on ("Metadata failed") is started
 /// again. Returns true if it was restarted.
 async fn restart_if_failed(id: u64) -> bool {
-    let client = reqwest::Client::new();
     let stats = async {
-        let r = client
-            .get(format!("{}/torrents/{id}/stats/v1", rqbit_base()))
-            .timeout(Duration::from_secs(3))
-            .send()
-            .await
-            .ok()?;
+        let r = rqbit::get(&format!("/torrents/{id}/stats/v1"), Duration::from_secs(3)).await.ok()?;
         serde_json::from_str::<serde_json::Value>(&r.text().await.ok()?).ok()
     }
     .await;
@@ -759,10 +759,7 @@ async fn restart_if_failed(id: u64) -> bool {
     if !failed {
         return false;
     }
-    let ok = client
-        .post(format!("{}/torrents/{id}/start", rqbit_base()))
-        .timeout(Duration::from_secs(3))
-        .send()
+    let ok = rqbit::post_empty(&format!("/torrents/{id}/start"), Duration::from_secs(3))
         .await
         .map(|r| r.status().is_success())
         .unwrap_or(false);
@@ -771,13 +768,7 @@ async fn restart_if_failed(id: u64) -> bool {
 }
 
 async fn rqbit_stage(rqbit_job: &str) -> Option<String> {
-    let url = format!("{}/add_jobs/{rqbit_job}", rqbit_base());
-    let response = reqwest::Client::new()
-        .get(url)
-        .timeout(Duration::from_secs(2))
-        .send()
-        .await
-        .ok()?;
+    let response = rqbit::get(&format!("/add_jobs/{rqbit_job}"), Duration::from_secs(2)).await.ok()?;
     if !response.status().is_success() {
         return None;
     }
@@ -799,21 +790,64 @@ mod tests {
     use super::*;
 
     #[test]
-    fn category_params_for_rqbit() {
-        // Torznab id only (every non-Nyaa source).
-        assert_eq!(category_params(Some(2040), None), vec![("torznab_category", "2040".to_string())]);
-        assert!(category_params(None, None).is_empty());
+    fn add_body_for_rqbit() {
+        use serde_json::json;
+        let magnet = validate_link(&format!("magnet:?xt=urn:btih:{H}&dn=x")).unwrap();
+        let url = validate_link("https://example.org/a.torrent").unwrap();
+        // Torznab id only (every non-Nyaa source); a URL gets no magnet timeout.
+        assert_eq!(
+            add_body(&url, Some(2040), None, "j1"),
+            json!({"url": "https://example.org/a.torrent", "torznab_category": 2040, "add_job_id": "j1"})
+        );
+        assert_eq!(add_body(&url, None, None, "j1"), json!({"url": "https://example.org/a.torrent", "add_job_id": "j1"}));
 
         let site = SendCategory::from_form(Some("nyaa"), Some("1_2"), Some("Anime - English-translated"));
+        let body = add_body(&magnet, Some(5070), site.as_ref(), "j2");
         assert_eq!(
-            category_params(Some(5070), site.as_ref()),
-            vec![
-                ("torznab_category", "5070".to_string()),
-                ("category", "Anime - English-translated".to_string()),
-                ("category_source", "nyaa".to_string()),
-                ("category_id", "1_2".to_string()),
-            ]
+            body,
+            json!({
+                "url": format!("magnet:?xt=urn:btih:{H}&dn=x"),
+                "torznab_category": 5070,
+                "category": "Anime - English-translated",
+                "category_source": "nyaa",
+                "category_id": "1_2",
+                "magnet_timeout_secs": 31_536_000u64,
+                "add_job_id": "j2",
+            })
         );
+        // Every key is one rqbit's POST /torrents JSON accepts.
+        const RQBIT_FIELDS: &[&str] = &[
+            "url", "torrent_base64", "overwrite", "output_folder", "sub_folder", "only_files_regex", "only_files",
+            "peer_connect_timeout", "peer_read_write_timeout", "initial_peers", "list_only", "torznab_category",
+            "category", "category_source", "category_id", "adopt_foreign_incomplete", "add_job_id",
+            "magnet_timeout_secs", "defer_metadata", "wait_for_metadata", "paused", "add_dialog_id",
+        ];
+        for key in body.as_object().unwrap().keys() {
+            assert!(RQBIT_FIELDS.contains(&key.as_str()), "{key}");
+        }
+        assert!(body["torznab_category"].is_u64());
+    }
+
+    #[test]
+    fn add_body_sizes() {
+        // A typical add: a Nyaa magnet with trackers and the category fields.
+        let trackers = [
+            "http://nyaa.tracker.wf:7777/announce",
+            "udp://open.stealth.si:80/announce",
+            "udp://tracker.opentrackr.org:1337/announce",
+            "udp://exodus.desync.com:6969/announce",
+            "udp://tracker.torrent.eu.org:451/announce",
+        ];
+        let mut link = format!("magnet:?xt=urn:btih:{H}&dn={}", urlencoding::encode("[SubsPlease] One Punch Man - 01 (1080p) [ABCDEF12].mkv"));
+        for t in trackers {
+            link.push_str(&format!("&tr={}", urlencoding::encode(t)));
+        }
+        let magnet = validate_link(&link).unwrap();
+        let site = SendCategory::from_form(Some("nyaa"), Some("1_2"), Some("Anime - English-translated"));
+        let body = serde_json::to_vec(&add_body(&magnet, Some(5070), site.as_ref(), "a1b2c3d4e5f60718")).unwrap();
+        let zstd = crate::rqbit::compress(&body).unwrap();
+        println!("typical add: {} B JSON, {} B zstd", body.len(), zstd.len());
+        assert!(zstd.len() < body.len());
     }
 
     #[test]
@@ -886,7 +920,8 @@ mod tests {
     #[test]
     fn classifies_rqbit_errors() {
         use AddError::*;
-        let c = |code: u16, m: &str| classify_rqbit_error(reqwest::StatusCode::from_u16(code).unwrap(), m);
+        let c = |code: u16, m: &str| classify_rqbit_error(reqwest::StatusCode::from_u16(code).unwrap(), None, m);
+        let k = |code: u16, kind: &str, m: &str| classify_rqbit_error(reqwest::StatusCode::from_u16(code).unwrap(), Some(kind), m);
         assert!(matches!(c(500, "timeout"), Waiting(_)));
         assert!(matches!(c(400, "error adding torrent: timed out after 900s waiting for torrent metadata from peers"), Waiting(_)));
         assert!(matches!(c(400, "error adding torrent: provided path is not a valid magnet URL"), Invalid(_)));
@@ -896,5 +931,15 @@ mod tests {
         assert!(matches!(c(400, "invalid add_job_id (use 1-128 of [A-Za-z0-9_-])"), Failed(_)));
         assert!(matches!(c(500, "disk full"), Failed(_)));
         assert!(matches!(c(503, "starting up"), Unreachable(_)));
+        // 400 invalid_input is the request's (the link's) fault; other kinds aren't.
+        assert!(matches!(k(400, "invalid_input", "unknown field `bogus`"), Invalid(_)));
+        assert!(matches!(k(400, "invalid_input", "invalid add_job_id"), Failed(_)));
+        assert!(matches!(k(400, "invalid_input", "timed out waiting"), Waiting(_)));
+        assert!(matches!(k(400, "internal_error", "disk full"), Failed(_)));
+        assert!(matches!(k(413, "internal_error", "length limit exceeded"), Failed(_)));
+        assert!(matches!(c(413, ""), Failed(_)));
+        assert!(matches!(c(415, ""), Failed(_)));
+        assert_eq!(rqbit_error_kind(r#"{"error_kind":"invalid_input","human_readable":"x"}"#).as_deref(), Some("invalid_input"));
+        assert_eq!(rqbit_error_kind("not json"), None);
     }
 }
