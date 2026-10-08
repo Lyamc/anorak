@@ -3,6 +3,7 @@ mod config;
 mod flaresolverr;
 mod lodestarr;
 mod models;
+mod nyaa;
 mod routes;
 mod torrent_files;
 mod utils;

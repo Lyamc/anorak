@@ -23,8 +23,17 @@ pub async fn endpoint(Form(payload): Form<models::Query>) -> Result<impl IntoRes
         .iter()
         .map(|it| {
             let display = it.display_category();
-            let category_name = display.map(models::category_name).unwrap_or_default();
+            let torznab_name = display.map(models::category_name).unwrap_or_default();
+            let site_category = !it.category_label.is_empty();
+            let category_name = if site_category {
+                crate::nyaa::short_name(&it.category_source, &it.category_site_id, &it.category_label)
+            } else {
+                torznab_name.clone()
+            };
             let category_title = match (display, it.category_inferred) {
+                _ if site_category => {
+                    crate::nyaa::tooltip(&it.category_source, &it.category_site_id, &it.category_label, display)
+                }
                 (Some(_), true) => format!(
                     "{category_name} (inferred: {} only lists this category)",
                     it.sources.join(", ")
@@ -45,6 +54,9 @@ pub async fn endpoint(Form(payload): Form<models::Query>) -> Result<impl IntoRes
                 category_title => category_title,
                 category_group => models::category_group(display),
                 category_inferred => it.category_inferred,
+                category_label => it.category_label,
+                category_source => it.category_source,
+                category_site_id => it.category_site_id,
                 sources => it.sources.join(", "),
                 source_ids => it.source_ids.join(" "),
                 seeders => it.seeders,

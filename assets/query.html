@@ -38,6 +38,9 @@
             data-torrent="{{ item.torrent }}"
             data-category="{{ item.category }}"
             data-catgroup="{{ item.category_group }}"
+            data-catlabel="{{ item.category_label }}"
+            data-catsource="{{ item.category_source }}"
+            data-catid="{{ item.category_site_id }}"
             data-sources="{{ item.source_ids }}">
             <td class="select">
                 {% if not item.already_added and item.magnet %}
@@ -422,6 +425,11 @@
     const postMagnet = (row) => {
         const body = new URLSearchParams({ magnet: row.dataset.magnet || '', job: row.dataset.job || '' });
         if (row.dataset.category) body.set('category', row.dataset.category);
+        if (row.dataset.catsource && row.dataset.catid) {
+            body.set('category_source', row.dataset.catsource);
+            body.set('category_id', row.dataset.catid);
+            if (row.dataset.catlabel) body.set('category_label', row.dataset.catlabel);
+        }
         const indexer = (row.dataset.sources || '').split(' ').filter(Boolean)[0];
         if (indexer) body.set('indexer', indexer);
         return fetch('/send-to-rqbit/', {

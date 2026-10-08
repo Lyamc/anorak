@@ -312,6 +312,11 @@ pub async fn endpoint(Form(payload): Form<SendToTransmission>) -> Response {
         .map(str::trim)
         .filter(|s| !s.is_empty())
         .and_then(|s| s.parse::<u32>().ok());
+    let site_category = SendCategory::from_form(
+        payload.category_source.as_deref(),
+        payload.category_id.as_deref(),
+        payload.category_label.as_deref(),
+    );
     let indexer = payload
         .indexer
         .as_deref()
@@ -319,7 +324,7 @@ pub async fn endpoint(Form(payload): Form<SendToTransmission>) -> Response {
         .filter(|s| !s.is_empty())
         .map(str::to_string);
 
-    let (job, rx) = start_or_join(job_id, link, category, indexer).await;
+    let (job, rx) = start_or_join(job_id, link, category, site_category, indexer).await;
     respond(wait_status(&job, rx, HANDOFF_WAIT).await)
 }
 
@@ -349,6 +354,7 @@ async fn start_or_join(
     job_id: String,
     link: Link,
     category: Option<u32>,
+    site_category: Option<SendCategory>,
     indexer: Option<String>,
 ) -> (String, watch::Receiver<Option<Outcome>>) {
     let key = link.key();
@@ -396,7 +402,7 @@ async fn start_or_join(
     let job_id = id.clone();
     tokio::spawn(async move {
         let started = Instant::now();
-        let outcome = run_send(link, category, indexer, &job_id).await;
+        let outcome = run_send(link, category, site_category, indexer, &job_id).await;
         let ms = started.elapsed().as_millis();
         match outcome.state {
             SendState::Invalid | SendState::Unreachable | SendState::Failed => {
@@ -469,7 +475,13 @@ enum AddError {
     Failed(String),
 }
 
-async fn run_send(link: Link, category: Option<u32>, indexer: Option<String>, job_id: &str) -> Outcome {
+async fn run_send(
+    link: Link,
+    category: Option<u32>,
+    site_category: Option<SendCategory>,
+    indexer: Option<String>,
+    job_id: &str,
+) -> Outcome {
     let link = match (&link, indexer) {
         (Link::Url(url), Some(indexer)) if torrent_files::is_page_link(url) => {
             // A details page (0Magnet, 1337x) is not something the client can
@@ -510,7 +522,7 @@ async fn run_send(link: Link, category: Option<u32>, indexer: Option<String>, jo
             j.rqbit_job = Some(rqbit_job.clone());
         })
         .await;
-        match add_once(&link, category, &rqbit_job).await {
+        match add_once(&link, category, site_category.as_ref(), &rqbit_job).await {
             Ok(outcome) => return outcome,
             Err(AddError::Waiting(why)) => {
                 let wait = Duration::from_secs((5 * attempt as u64).min(30));
@@ -538,11 +550,73 @@ fn rqbit_base() -> String {
     CONFIG.rqbit_url.trim_end_matches('/').to_string()
 }
 
-async fn add_once(link: &Link, torznab_category: Option<u32>, rqbit_job: &str) -> Result<Outcome, AddError> {
-    let mut params: Vec<(&str, String)> = Vec::new();
+/// A Nyaa/sukebei category, forwarded to rqbit as `category_source`,
+/// `category_id` and `category` next to the numeric `torznab_category`.
+/// Each part is only sent when it is valid.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct SendCategory {
+    source: Option<String>,
+    id: Option<String>,
+    label: Option<String>,
+}
+
+/// rqbit's limit for `category`.
+const CATEGORY_LABEL_MAX: usize = 100;
+
+impl SendCategory {
+    fn from_form(source: Option<&str>, id: Option<&str>, label: Option<&str>) -> Option<SendCategory> {
+        let source = source
+            .map(str::trim)
+            .filter(|s| matches!(*s, "nyaa" | "sukebei"))
+            .map(str::to_string);
+        let id = id.map(str::trim).filter(|s| is_site_category_id(s)).map(str::to_string);
+        let label = label
+            .map(|s| s.split_whitespace().collect::<Vec<_>>().join(" "))
+            .filter(|s| !s.is_empty() && !s.chars().any(char::is_control))
+            .map(|s| s.chars().take(CATEGORY_LABEL_MAX).collect::<String>().trim_end().to_string());
+        let category = SendCategory { source, id, label };
+        (category != SendCategory::default()).then_some(category)
+    }
+}
+
+/// "1_2": digits, an underscore, digits.
+fn is_site_category_id(s: &str) -> bool {
+    match s.split_once('_') {
+        Some((a, b)) => {
+            !a.is_empty() && !b.is_empty() && a.len() <= 3 && b.len() <= 3
+                && a.chars().chain(b.chars()).all(|c| c.is_ascii_digit())
+        }
+        None => false,
+    }
+}
+
+/// Category query parameters for rqbit's `POST /torrents`.
+fn category_params(torznab_category: Option<u32>, site: Option<&SendCategory>) -> Vec<(&'static str, String)> {
+    let mut params = Vec::new();
     if let Some(id) = torznab_category {
         params.push(("torznab_category", id.to_string()));
     }
+    if let Some(site) = site {
+        if let Some(label) = &site.label {
+            params.push(("category", label.clone()));
+        }
+        if let Some(source) = &site.source {
+            params.push(("category_source", source.clone()));
+        }
+        if let Some(id) = &site.id {
+            params.push(("category_id", id.clone()));
+        }
+    }
+    params
+}
+
+async fn add_once(
+    link: &Link,
+    torznab_category: Option<u32>,
+    site_category: Option<&SendCategory>,
+    rqbit_job: &str,
+) -> Result<Outcome, AddError> {
+    let mut params: Vec<(&str, String)> = category_params(torznab_category, site_category);
     if let Link::Magnet { .. } = link {
         // Return as soon as the magnet is queued; rqbit fetches the metadata
         // in the background and keeps trying for MAGNET_RESOLVE_SECS.
@@ -723,6 +797,46 @@ async fn rqbit_stage(rqbit_job: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn category_params_for_rqbit() {
+        // Torznab id only (every non-Nyaa source).
+        assert_eq!(category_params(Some(2040), None), vec![("torznab_category", "2040".to_string())]);
+        assert!(category_params(None, None).is_empty());
+
+        let site = SendCategory::from_form(Some("nyaa"), Some("1_2"), Some("Anime - English-translated"));
+        assert_eq!(
+            category_params(Some(5070), site.as_ref()),
+            vec![
+                ("torznab_category", "5070".to_string()),
+                ("category", "Anime - English-translated".to_string()),
+                ("category_source", "nyaa".to_string()),
+                ("category_id", "1_2".to_string()),
+            ]
+        );
+    }
+
+    #[test]
+    fn send_category_validation() {
+        assert_eq!(SendCategory::from_form(None, None, None), None);
+        assert_eq!(SendCategory::from_form(Some(""), Some(" "), Some("  ")), None);
+        // Each part is checked on its own and dropped when invalid.
+        let c = SendCategory::from_form(Some("piratebay"), Some("1_2"), Some("Art - Doujinshi")).unwrap();
+        assert_eq!((c.source, c.id.as_deref(), c.label.as_deref()), (None, Some("1_2"), Some("Art - Doujinshi")));
+        let c = SendCategory::from_form(Some(" sukebei "), Some("1-2"), None).unwrap();
+        assert_eq!((c.source.as_deref(), c.id, c.label), (Some("sukebei"), None, None));
+        for bad in ["12", "_2", "1_", "a_b", "1_2_3", "1234_1", "1_2 "] {
+            assert!(!is_site_category_id(bad), "{bad}");
+        }
+        assert!(is_site_category_id("1_2") && is_site_category_id("6_2"));
+        // Labels: whitespace folded, control characters refused, at most 100 chars.
+        let c = SendCategory::from_form(None, None, Some(" Anime -\n English ")).unwrap();
+        assert_eq!(c.label.as_deref(), Some("Anime - English"));
+        assert_eq!(SendCategory::from_form(None, None, Some("bad\u{7}label")), None);
+        let long = "x".repeat(150);
+        let c = SendCategory::from_form(None, None, Some(&long)).unwrap();
+        assert_eq!(c.label.unwrap().chars().count(), 100);
+    }
 
     const H: &str = "c9e15763f722f23e98a29decdfae341b98d53056";
 

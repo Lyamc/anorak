@@ -48,6 +48,15 @@ pub struct Item {
     /// `category` came from the source's only declared category, not the result.
     #[serde(default)]
     pub category_inferred: bool,
+    /// The site's own category name, e.g. "Anime - English-translated" (Nyaa/sukebei RSS).
+    #[serde(default)]
+    pub category_label: String,
+    /// Which site `category_site_id` belongs to ("nyaa" | "sukebei"), else "".
+    #[serde(default)]
+    pub category_source: String,
+    /// The site's own category id, e.g. "1_2".
+    #[serde(default)]
+    pub category_site_id: String,
 }
 
 impl Item {
@@ -169,6 +178,13 @@ pub struct SendToTransmission {
     /// if the answer to the POST never arrives.
     #[serde(default)]
     pub job: Option<String>,
+    /// Site category (Nyaa/sukebei) forwarded to rqbit next to the Torznab id.
+    #[serde(default)]
+    pub category_label: Option<String>,
+    #[serde(default)]
+    pub category_source: Option<String>,
+    #[serde(default)]
+    pub category_id: Option<String>,
 }
 
 /// Pick one Torznab category id from a list of category strings.

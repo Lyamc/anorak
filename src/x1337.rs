@@ -199,6 +199,9 @@ fn parse_row(row: &str, base: &str, source: &Indexer) -> Option<Item> {
         sources: vec![source.name.clone()],
         source_ids: vec![source.id.clone()],
         category_inferred: false,
+        category_label: String::new(),
+        category_source: String::new(),
+        category_site_id: String::new(),
     })
 }
 

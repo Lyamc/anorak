@@ -36,6 +36,24 @@ services.flaresolverr.enable = true;   # nixpkgs module; join it to the same nam
 services.anorak.flaresolverrUrl = "http://127.0.0.1:8191";
 ```
 
+### Nyaa and sukebei categories
+
+Lodestarr's results for Nyaa and sukebei carry no real category (Torznab says 5000 for all of them, the native API none), but the sites' own RSS feeds do. For these two sources anorak reads `/?page=rss&q=` itself, from the same network namespace: one request per search (plus a second one with leading zeros dropped from one-digit episode numbers, e.g. "05" -> "5", as Lodestarr's definition does), trying up to three of Lodestarr's mirrors and remembering the one that answered, with results cached for 10 minutes. If the feed can't be had, the source is searched through Lodestarr as before. Set `ANORAK_NYAA_RSS=0` to always use Lodestarr.
+
+Each result keeps the site's category: the badge shows a short name ("Anime EN"), the tooltip the full name, the site's id and the Torznab category, e.g. "Anime - English-translated (Nyaa 1_2) · TV/Anime (5070)". The Category filter works off the Torznab id:
+
+| Nyaa | Torznab |
+|---|---|
+| 1_x Anime (AMV, English-translated, Non-English-translated, Raw) | 5070 |
+| 2_0 Audio, 2_2 Audio - Lossy / 2_1 Audio - Lossless | 3000 / 3040 |
+| 3_x Literature | 7000 |
+| 4_x Live Action | 5000 |
+| 5_x Pictures | 8000 |
+| 6_0 Software, 6_1 Software - Applications / 6_2 Software - Games | 4000 / 4050 |
+| sukebei, every category (Art, Real Life) | 6000 |
+
+On a grab, rqbit gets the Torznab id as `torznab_category` (a number) and, for these sources, `category` (the site's name, at most 100 characters), `category_source` (`nyaa` or `sukebei`) and `category_id` (e.g. `1_2`); each is only sent when it is valid.
+
 The service listens on port 9341. Set `openFirewall = true` only when it should be reachable on the host's own network.
 
 To build the package by itself:

@@ -138,8 +138,23 @@ pub async fn search(query: &str, sources: &[Indexer]) -> (Vec<Item>, Vec<String>
     for (index, source) in sources.iter().cloned().enumerate() {
         let query = query.to_string();
         set.spawn(async move {
+            // Nyaa/sukebei: the site's RSS carries categories, Lodestarr's
+            // results don't. Lodestarr is the fallback.
+            let rss = if crate::nyaa::handles(&source.id) {
+                match crate::nyaa::search(&query, &source).await {
+                    Ok(items) => Some(items),
+                    Err(err) => {
+                        warn!("{} RSS failed ({err:#}); asking Lodestarr", source.name);
+                        None
+                    }
+                }
+            } else {
+                None
+            };
             let result = if crate::x1337::handles(&source.id) {
                 crate::x1337::search(&query, &source).await
+            } else if let Some(items) = rss {
+                Ok(items)
             } else {
                 match search_source(&query, &source).await {
                     // Lodestarr answers a blocked or unreachable site with an
@@ -328,6 +343,9 @@ fn to_item(value: &Value, source: &Indexer) -> Option<Item> {
         sources: vec![source_name],
         source_ids: vec![source.id.clone()],
         category_inferred,
+        category_label: String::new(),
+        category_source: String::new(),
+        category_site_id: String::new(),
     })
 }
 
@@ -354,6 +372,11 @@ fn dedupe(items: Vec<Item>) -> Vec<Item> {
             if (kept.category.is_empty() || kept.category_inferred) && !item.category.is_empty() && !item.category_inferred {
                 kept.category = item.category;
                 kept.category_inferred = false;
+            }
+            if kept.category_label.is_empty() && !item.category_label.is_empty() {
+                kept.category_label = item.category_label;
+                kept.category_source = item.category_source;
+                kept.category_site_id = item.category_site_id;
             }
         } else {
             seen.insert(hash, out.len());

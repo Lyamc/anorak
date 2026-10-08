@@ -53,6 +53,12 @@ pub struct ApiItem {
     pub category_group: String,
     /// The category was inferred from a single-category source.
     pub category_inferred: bool,
+    /// Site category (Nyaa/sukebei): full name, short badge text, site
+    /// ("nyaa" | "sukebei") and the site's id, e.g. "1_2" ("" when none).
+    pub category_label: String,
+    pub category_short: String,
+    pub category_source: String,
+    pub category_site_id: String,
     /// Source (indexer) names and ids; empty on the Torznab fallback path.
     pub sources: Vec<String>,
     pub source_ids: Vec<String>,
@@ -100,6 +106,14 @@ async fn respond(payload: models::Query) -> Result<Json<ApiResponse>, AppError> 
                 category_name: display.map(models::category_name).unwrap_or_default(),
                 category_group: models::category_group(display).to_string(),
                 category_inferred: it.category_inferred,
+                category_label: it.category_label.clone(),
+                category_short: if it.category_label.is_empty() {
+                    String::new()
+                } else {
+                    crate::nyaa::short_name(&it.category_source, &it.category_site_id, &it.category_label)
+                },
+                category_source: it.category_source.clone(),
+                category_site_id: it.category_site_id.clone(),
                 sources: it.sources.clone(),
                 source_ids: it.source_ids.clone(),
                 seeders: it.seeders,
